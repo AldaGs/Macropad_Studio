@@ -4,3 +4,5 @@ build/
 release/
 *.exe
 .env
+!bin/**/*.exe
+!bin/**/*.dll

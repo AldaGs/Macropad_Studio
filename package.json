@@ -47,7 +47,9 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": "always",
+      "shortcutName": "Macropad Studio",
+      "license": "LICENSE"
     }
   }
 }
