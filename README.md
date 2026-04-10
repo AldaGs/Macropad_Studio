@@ -34,23 +34,27 @@ Macropad Studio is a Windows desktop application built with **Electron**, **Node
 If you want to clone this repository and run it locally in developer mode:
 
 1. **Clone the repo:**
-   ```bash
+    ```
    git clone [https://github.com/AldaGs/Macropad_Studio.git](https://github.com/AldaGs/Macropad_Studio.git)
+
 2. **Navigate into the folder:**
-    ```bash
+    ```
     cd macropad-studio
+
 3. **Install dependecies**
-    ```bash
+    ```
     npm install
-4. **Run the app**
+
+4. **Run the app**:
+    ```
     npm start
 
 ## Building the installer
 
-To compile the app into a standalone Windows .exe installer:
-    ```bash
+To compile the app into a standalone Windows .exe installer
+    
     npm run build
-
+    
 ## How to Use
 1. Connect your Macropad: Open the app and click 🔗 Connect Macropad. Press a key on your secondary keyboard so the Lua engine locks onto its hardware ID.
 
