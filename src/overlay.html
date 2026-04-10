@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Macropad Overlay</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; /* Removed padding to prevent invisible scrollbars */
+            height: 100vh; /* THE FIX 1: Tell the body to fill the entire window height */
+            background: rgba(30, 30, 30, 0.9); 
+            font-family: 'Segoe UI', sans-serif; 
+            user-select: none; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; /* THE FIX 2: Vertically center the keyboard container */
+            overflow: hidden;
+        }
+        
+        .keyboard-container { display: flex; gap: 20px; align-items: flex-end; }
+        .key-row { display: flex; gap: 5px; margin-bottom: 5px; justify-content: center; }
+    
+        /* Modifiers width scaling */
+        .key.w-1-5 { min-width: 65px; } .key.w-2 { min-width: 90px; } .key.w-2-25 { min-width: 105px; } .key.w-2-75 { min-width: 125px; } .key.w-space { min-width: 250px; } .key.h-2 { height: 85px; }
+        
+        /* 1. Base Key (Resting) */
+        .key {
+            position: relative; 
+            background: #444; 
+            border: 2px solid #555; 
+            border-radius: 6px; 
+            min-width: 40px; 
+            height: 40px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 0.85em; 
+            font-weight: bold; 
+            cursor: default; 
+            transition: all 0.2s; 
+            box-shadow: 0 4px 0 #222;
+
+            transform: translateY(0);
+            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        /* 2. Base Key (Pressed/Hover) */
+        .key:hover {
+            box-shadow: 0 0px 0 #222; 
+            transform: translateY(0px); /* Pushes the key into the board */
+        }
+
+        /* 3. Active Blue Key (Resting at the EXACT same height as gray keys) */
+        .key.active { 
+            background: #007acc; 
+            border-color: #0098ff; 
+            box-shadow: 0 4px 0 #004b7d; /* Raised blue shadow */
+            transform: translateY(0); /* No longer permanently pressed down! */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5); 
+        }
+
+        /* 4. Active Blue Key (Pressed/Hover) */
+        .key.active:hover {
+            box-shadow: 0 0px 0 #004b7d; 
+            transform: translateY(4px); /* Pushes down only on hover */
+        }
+        
+        /* Tooltip Logic */
+        .tooltip { visibility: hidden; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background-color: #111; color: #fff; text-align: center; padding: 5px 10px; border-radius: 6px; font-size: 0.8em; white-space: nowrap; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; border: 1px solid #555;}
+        .tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #111 transparent transparent transparent; }
+        
+        /* Show tooltips on ANY hovered key */
+        .key:hover .tooltip { visibility: visible; opacity: 1; }
+
+        /* Clusters */
+        .nav-cluster { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;}
+        .arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
+        .numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
+
+        /* NEW: Top Bar and Close Button styling */
+        .top-bar { width: 100%; max-width: 850px; display: flex; justify-content: flex-end; margin-bottom: 15px; }
+        /* UPDATED: Absolute positioning to lock it to the top right */
+        .close-btn { 
+            position: absolute; 
+            top: 15px; 
+            right: 15px; 
+            background: #cc3300; 
+            border: none; 
+            color: white; 
+            width: 25px; 
+            height: 25px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 1.0em; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            transition: background 0.2s, transform 0.1s; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
+            z-index: 1000; /* Keeps it on top of everything */
+        }
+        .close-btn:hover { background: #ff4400; transform: scale(1.1); }
+        .close-btn:active { transform: scale(0.9); }
+
+        body { 
+            animation: popIn 0.25s cubic-bezier(0.10, 0.60, 0.30, 1.00) forwards; 
+        }
+        
+        body.closing { 
+            animation: popOut 0.25s cubic-bezier(0.70, 0.00, 0.80, 0.40) forwards; 
+        }
+        
+        @keyframes popIn {
+            from { opacity: 0.6; transform: scale(0.75); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes popOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0.6; transform: scale(0.75); }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="close-btn" title="Close Overlay" 
+            onmouseenter="window.electronAPI.setOverlayInteractive(true)"
+            onmouseleave="window.electronAPI.setOverlayInteractive(false)"
+            onclick="animateAndClose()">X</button>
+
+    <div class="keyboard-container">
+        <div class="main-block">
+            <div class="key-row">
+                <div class="key" data-id="192">~</div><div class="key" data-id="49">1</div><div class="key" data-id="50">2</div><div class="key" data-id="51">3</div><div class="key" data-id="52">4</div><div class="key" data-id="53">5</div><div class="key" data-id="54">6</div><div class="key" data-id="55">7</div><div class="key" data-id="56">8</div><div class="key" data-id="57">9</div><div class="key" data-id="48">0</div><div class="key" data-id="189">-</div><div class="key" data-id="187">=</div><div class="key w-2" data-id="8">BACK</div>
+            </div>
+            <div class="key-row">
+                <div class="key w-1-5" data-id="9">TAB</div><div class="key" data-id="81">Q</div><div class="key" data-id="87">W</div><div class="key" data-id="69">E</div><div class="key" data-id="82">R</div><div class="key" data-id="84">T</div><div class="key" data-id="89">Y</div><div class="key" data-id="85">U</div><div class="key" data-id="73">I</div><div class="key" data-id="79">O</div><div class="key" data-id="80">P</div><div class="key" data-id="219">[</div><div class="key" data-id="221">]</div><div class="key w-1-5" data-id="220">\</div>
+            </div>
+            <div class="key-row">
+                <div class="key w-2" data-id="20">CAPS</div><div class="key" data-id="65">A</div><div class="key" data-id="83">S</div><div class="key" data-id="68">D</div><div class="key" data-id="70">F</div><div class="key" data-id="71">G</div><div class="key" data-id="72">H</div><div class="key" data-id="74">J</div><div class="key" data-id="75">K</div><div class="key" data-id="76">L</div><div class="key" data-id="186">;</div><div class="key" data-id="222">'</div><div class="key w-2-25" data-id="13">ENTER</div>
+            </div>
+            <div class="key-row">
+                <div class="key w-2-25" data-id="16">SHIFT</div><div class="key" data-id="90">Z</div><div class="key" data-id="88">X</div><div class="key" data-id="67">C</div><div class="key" data-id="86">V</div><div class="key" data-id="66">B</div><div class="key" data-id="78">N</div><div class="key" data-id="77">M</div><div class="key" data-id="188">,</div><div class="key" data-id="190">.</div><div class="key" data-id="191">/</div><div class="key w-2-75" data-id="16">SHIFT</div>
+            </div>
+            <div class="key-row">
+                <div class="key w-1-5" data-id="17">CTRL</div><div class="key w-1-5" data-id="91">WIN</div><div class="key w-1-5" data-id="18">ALT</div><div class="key w-space" data-id="32">SPACE</div><div class="key w-1-5" data-id="18">ALT</div><div class="key w-1-5" data-id="17">CTRL</div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="nav-cluster">
+                <div class="key-row"><div class="key" data-id="45">INS</div><div class="key" data-id="36">HOME</div><div class="key" data-id="33">PGUP</div></div>
+                <div class="key-row"><div class="key" data-id="46">DEL</div><div class="key" data-id="35">END</div><div class="key" data-id="34">PGDN</div></div>
+            </div>
+            <div class="arrow-cluster">
+                <div></div><div class="key" data-id="38">▲</div><div></div>
+                <div class="key" data-id="37">◀</div><div class="key" data-id="40">▼</div><div class="key" data-id="39">▶</div>
+            </div>
+        </div>
+
+        <div class="numpad-cluster">
+            <div class="key" data-id="144">NUM</div><div class="key" data-id="111">/</div><div class="key" data-id="106">*</div><div class="key" data-id="109">-</div>
+            <div class="key" data-id="103">7</div><div class="key" data-id="104">8</div><div class="key" data-id="105">9</div><div class="key h-2" style="grid-row: span 2;" data-id="107">+</div>
+            <div class="key" data-id="100">4</div><div class="key" data-id="101">5</div><div class="key" data-id="102">6</div>
+            <div class="key" data-id="97">1</div><div class="key" data-id="98">2</div><div class="key" data-id="99">3</div><div class="key h-2" style="grid-row: span 2;" data-id="13">ENT</div>
+            <div class="key w-2" style="grid-column: span 2;" data-id="96">0</div><div class="key" data-id="110">.</div>
+        </div>
+    </div>
+
+    <script>
+        // NEW: Triggers the CSS animation before hiding the window
+        function animateAndClose() {
+            // 1. Add the closing class to start the CSS animation
+            document.body.classList.add('closing');
+            
+            // 2. Wait exactly 150ms (the length of the popOut animation)
+            setTimeout(() => {
+                // 3. Tell Electron to actually hide the window
+                window.electronAPI.toggleOverlay();
+                
+                // 4. Remove the class instantly so it's ready to "Pop In" next time!
+                document.body.classList.remove('closing');
+            }, 250); 
+        }
+        // Listen for the active macro list from Node.js
+        window.electronAPI.onUpdateOverlay((event, activeMacros) => {
+            
+            // 1. Wipe the keyboard clean and set everything to "Free"
+            const allKeys = document.querySelectorAll('.key');
+            allKeys.forEach(key => {
+                key.classList.remove('active');
+                
+                // Check if the key already has a tooltip span. If not, create one!
+                let tooltip = key.querySelector('.tooltip');
+                if (!tooltip) {
+                    tooltip = document.createElement('span');
+                    tooltip.className = 'tooltip';
+                    key.appendChild(tooltip);
+                }
+                
+                // Set the default state for every key
+                tooltip.innerText = "Free";
+            });
+
+            // 2. Light up the used keys and overwrite their tooltips!
+            activeMacros.forEach(macro => {
+                // Find the physical HTML key by matching the data-id
+                const physicalKey = document.querySelector(`.key[data-id="${macro.keyId}"]`);
+                
+                if (physicalKey) {
+                    physicalKey.classList.add('active');
+                    
+                    const tooltip = physicalKey.querySelector('.tooltip');
+                    if (tooltip) {
+                        // Priority 1: Custom Description (macro.desc)
+                        // Priority 2: The full shortcut/path (macro.visualValue)
+                        tooltip.innerText = macro.desc ? macro.desc : macro.visualValue;
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

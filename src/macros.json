@@ -1,0 +1,74 @@
+[
+  {
+    "keyId": "49",
+    "visualKey": "1",
+    "type": "run",
+    "value": "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe",
+    "visualValue": "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe",
+    "desc": "OPEN Ae"
+  },
+  {
+    "keyId": "67",
+    "visualKey": "C",
+    "type": "send",
+    "value": "^c",
+    "visualValue": "Ctrl + C",
+    "desc": "COPY"
+  },
+  {
+    "keyId": "53",
+    "visualKey": "5",
+    "type": "run",
+    "value": "calc.exe",
+    "visualValue": "calc.exe",
+    "desc": "CALCULATOR"
+  },
+  {
+    "keyId": "68",
+    "visualKey": "D",
+    "type": "send",
+    "value": "^d",
+    "visualValue": "Ctrl + D",
+    "desc": "DUPLICATE"
+  },
+  {
+    "keyId": "48",
+    "visualKey": "0",
+    "type": "send",
+    "value": "{Space}-{Space}",
+    "visualValue": "{Space}-{Space}",
+    "desc": "HYPHEN"
+  },
+  {
+    "keyId": "57",
+    "visualKey": "9",
+    "type": "send",
+    "value": "{Space}—{Space}",
+    "visualValue": "{Space}—{Space}",
+    "desc": "LONG HYPHEN"
+  },
+  {
+    "keyId": "56",
+    "visualKey": "8",
+    "type": "custom",
+    "value": "CurrentDate := FormatTime(, \"yyyy - MM - dd\")\nSend CurrentDate",
+    "visualValue": "Custom AHK Script",
+    "desc": "TYPE DATE"
+  },
+  {
+    "keyId": "55",
+    "visualKey": "7",
+    "type": "custom",
+    "value": "Send \"^+n\"\nSleep 10\nSend FormatTime(, \"yyyy - MM - dd\")\nSleep 10\nSend \"{Enter}\"",
+    "visualValue": "Custom AHK Script",
+    "desc": "NEW FOLDER - DATE"
+  },
+  {
+    "keyId": "73",
+    "visualKey": "I",
+    "type": "send",
+    "value": "^i",
+    "visualValue": "Ctrl + I",
+    "desc": "IMPORT"
+  }
+]
