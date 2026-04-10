@@ -1,7 +1,7 @@
 <div align="center">
   <img src="src/assets/icon.ico" width="128" alt="Macropad Studio Logo">
   
-  # Macropad Studio 🎛️
+  # Macropad Studio
 
   **Turn any secondary keyboard or numpad into a fully customizable, profile-driven command center.**
 </div>
@@ -45,7 +45,7 @@ If you want to clone this repository and run it locally in developer mode:
 4. **Run the app**
     npm start
 
-## Building the installar
+## Building the installer
 
 To compile the app into a standalone Windows .exe installer:
     ```bash
