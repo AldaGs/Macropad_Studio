@@ -62,7 +62,7 @@ function createWindow () {
   // THE FIX: Overlay window is now securely INSIDE the createWindow function!
   overlayWindow = new BrowserWindow({
     width: 1160,
-    height: 330,
+    height: 400,
     transparent: true, 
     frame: false,      
     alwaysOnTop: true, 
