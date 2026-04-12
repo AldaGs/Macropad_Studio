@@ -5,32 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Macropad Overlay</title>
     <style>
+/* --- THE STUDIO GLASS PALETTE --- */
+        :root {
+            --bg-glass: rgba(15, 20, 25, .96);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --key-border: rgba(255, 255, 255, 0.12);
+            --accent-cyan: #0abbdf; /* Matched to main app */
+            --accent-magenta: #e024c5;
+            --accent-warning: #ff4757;
+            --text-main: #e2e8f0;
+        }
+
         body { 
             margin: 0; 
-            padding: 0; /* Removed padding to prevent invisible scrollbars */
-            height: 100vh; /* THE FIX 1: Tell the body to fill the entire window height */
-            background: rgba(30, 30, 30, 0.9); 
-            font-family: 'Segoe UI', sans-serif; 
+            padding: 20px; 
+            height: 100vh; 
+            box-sizing: border-box;
+            background: transparent; 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
             user-select: none; 
-            color: white; 
+            color: var(--text-main); 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            justify-content: center; /* THE FIX 2: Vertically center the keyboard container */
+            justify-content: center; 
             overflow: hidden;
+            animation: popIn 0.3s cubic-bezier(0.10, 0.60, 0.30, 1.00) forwards; 
+        }
+
+        /* --- THE FROSTED GLASS CHASSIS --- */
+        .glass-panel {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 35px 25px 25px 25px; /* Cleaned up duplicate */
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05); /* Cleaned up duplicate */
+            position: relative; 
+            -webkit-app-region: drag; /* Now it will actually work! */
+        }
+
+        /* --- THE DRAG BAR --- */
+        .drag-bar {
+            width: 100%;
+            height: 30px;
+            -webkit-app-region: drag; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
         }
         
+        .drag-dots { display: flex; gap: 4px; }
+        .drag-dots span {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* OVERHAULED: Close Button */
+        .close-btn { 
+            -webkit-app-region: no-drag; /* Crucial: Prevents dragging when you try to click 'Close' */
+            position: absolute; 
+            top: 12px;   /* Tucked into the new top corner */
+            right: 12px; 
+            background: transparent; 
+            border: 1px solid rgba(255, 71, 87, 0.5); 
+            color: var(--accent-warning); 
+            width: 28px; 
+            height: 28px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-weight: bold;
+            box-shadow: rgba(0, 0, 0, 0.5);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        .close-btn:hover { 
+            background: rgba(255, 71, 87, 0.05); 
+            border-color: var(--accent-warning); 
+            box-shadow: 0 0 10px rgba(255, 71, 87, 0.15); 
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        /* Layout Grid */
         .keyboard-container { display: flex; gap: 20px; align-items: flex-end; }
         .key-row { display: flex; gap: 5px; margin-bottom: 5px; justify-content: center; }
-    
-        /* Modifiers width scaling */
         .key.w-1-5 { min-width: 65px; } .key.w-2 { min-width: 90px; } .key.w-2-25 { min-width: 105px; } .key.w-2-75 { min-width: 125px; } .key.w-space { min-width: 250px; } .key.h-2 { height: 85px; }
         
-        /* 1. Base Key (Resting) */
+        /* --- HOLLOW BEVELED KEYS --- */
         .key {
             position: relative; 
-            background: #444; 
-            border: 2px solid #555; 
+            background: transparent; 
+            border: 1px solid var(--key-border); 
             border-radius: 6px; 
             min-width: 40px; 
             height: 40px; 
@@ -38,102 +109,57 @@
             justify-content: center; 
             align-items: center; 
             font-size: 0.85em; 
-            font-weight: bold; 
+            font-weight: 600; 
             cursor: default; 
-            transition: all 0.2s; 
-            box-shadow: 0 4px 0 #222;
-
-            transform: translateY(0);
-            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            cursor: pointer;
+            box-shadow: rgba(0, 0, 0, 0.5);
+            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            -webkit-app-region: no-drag; /* ADD THIS: Allows your tooltips and neon glows to trigger! */
         }
 
-        /* 2. Base Key (Pressed/Hover) */
         .key:hover {
-            box-shadow: 0 0px 0 #222; 
-            transform: translateY(0px); /* Pushes the key into the board */
+            box-shadow:  0 4px 10px rgba(0,0,0,0.3); 
         }
 
-        /* 3. Active Blue Key (Resting at the EXACT same height as gray keys) */
+        /* --- THE NEON GLOW (Active Macros) --- */
         .key.active { 
-            background: #007acc; 
-            border-color: #0098ff; 
-            box-shadow: 0 4px 0 #004b7d; /* Raised blue shadow */
-            transform: translateY(0); /* No longer permanently pressed down! */
-            text-shadow: 0 1px 2px rgba(0,0,0,0.5); 
+            border-color: rgba(0, 212, 255, 0.5); 
+            color: var(--accent-cyan);
+            box-shadow:  0 0 8px rgba(0, 212, 255, 0.15); 
+            text-shadow: 0 0 5px rgba(0, 212, 255, 0.5); 
         }
 
-        /* 4. Active Blue Key (Pressed/Hover) */
         .key.active:hover {
-            box-shadow: 0 0px 0 #004b7d; 
-            transform: translateY(4px); /* Pushes down only on hover */
+            background: rgba(0, 212, 255, 0.05); 
+            border-color: var(--accent-cyan);
+            box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.2), inset -1px -1px 0px rgba(0, 0, 0, 0.6), 0 0 6px rgba(0, 212, 255, 0.25); 
+            transform: translateY(-2px); 
         }
         
         /* Tooltip Logic */
-        .tooltip { visibility: hidden; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background-color: #111; color: #fff; text-align: center; padding: 5px 10px; border-radius: 6px; font-size: 0.8em; white-space: nowrap; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; border: 1px solid #555;}
-        .tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #111 transparent transparent transparent; }
-        
-        /* Show tooltips on ANY hovered key */
+        .tooltip { visibility: hidden; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: var(--bg-glass); backdrop-filter: blur(10px); color: var(--text-main); text-align: center; padding: 6px 12px; border-radius: 6px; font-size: 1em; white-space: nowrap; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; border: 1px solid var(--accent-cyan); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);}
         .key:hover .tooltip { visibility: visible; opacity: 1; }
 
-        /* Clusters */
         .nav-cluster { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;}
         .arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
         .numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
 
-        /* NEW: Top Bar and Close Button styling */
-        .top-bar { width: 100%; max-width: 850px; display: flex; justify-content: flex-end; margin-bottom: 15px; }
-        /* UPDATED: Absolute positioning to lock it to the top right */
-        .close-btn { 
-            position: absolute; 
-            top: 15px; 
-            right: 15px; 
-            background: #cc3300; 
-            border: none; 
-            color: white; 
-            width: 25px; 
-            height: 25px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            font-size: 1.0em; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            transition: background 0.2s, transform 0.1s; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
-            z-index: 1000; /* Keeps it on top of everything */
-        }
-        .close-btn:hover { background: #ff4400; transform: scale(1.1); }
-        .close-btn:active { transform: scale(0.9); }
-
-        body { 
-            animation: popIn 0.25s cubic-bezier(0.10, 0.60, 0.30, 1.00) forwards; 
-        }
-        
-        body.closing { 
-            animation: popOut 0.25s cubic-bezier(0.70, 0.00, 0.80, 0.40) forwards; 
-        }
-        
-        @keyframes popIn {
-            from { opacity: 0.6; transform: scale(0.75); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        
-        @keyframes popOut {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0.6; transform: scale(0.75); }
-        }
+        body.closing { animation: popOut 0.2s cubic-bezier(0.70, 0.00, 0.80, 0.40) forwards; }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes popOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.9); } }
     </style>
 </head>
 <body>
 
-    <button class="close-btn" title="Close Overlay" 
-            onmouseenter="window.electronAPI.setOverlayInteractive(true)"
-            onmouseleave="window.electronAPI.setOverlayInteractive(false)"
-            onclick="animateAndClose()">X</button>
+    <div class="glass-panel" >
+        
+        <div class="drag-bar">
+            <div class="drag-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <button class="close-btn" title="Close Overlay" onclick="animateAndClose()">X</button>
+        </div>
 
-    <div class="keyboard-container">
+        <div class="keyboard-container">
         <div class="main-block">
             <div class="key-row" style="margin-bottom: 15px;">
                 <div class="key" data-id="27" style="margin-right: 20px;">ESC</div>

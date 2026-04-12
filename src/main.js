@@ -51,18 +51,19 @@ function createWindow () {
           }
       } catch(e) { console.error("Error reading startup settings", e); }
   }
-
-  // --- NEW: THE NATIVE NOTIFICATION ---
-  if (startHidden && Notification.isSupported()) {
-      new Notification({
-          title: 'Macropad Studio',
-          body: 'Started in the system tray. Happy Macros!',
-          icon: path.join(__dirname, 'assets/icon.ico')
-      }).show();
-  }
+  try {
+    // --- NEW: THE NATIVE NOTIFICATION ---
+    if (startHidden && Notification.isSupported()) {
+        new Notification({
+            title: 'Macropad Studio',
+            body: 'Started in the system tray. Happy Macros!',
+            icon: path.join(__dirname, 'assets/icon.ico')
+        }).show();
+    }
+  } catch(e) { console.error("Error sending Notification", e); }
 
   mainWindow = new BrowserWindow({
-    width: 1000,
+    width: 1250,
     height: 980,
     title: "Macropad Studio",
     icon: path.join(__dirname, 'assets/icon.ico'),
@@ -86,7 +87,7 @@ function createWindow () {
   // THE FIX: Overlay window is now securely INSIDE the createWindow function!
   overlayWindow = new BrowserWindow({
     width: 1160,
-    height: 400,
+    height: 450,
     transparent: true, 
     frame: false,      
     alwaysOnTop: true, 
@@ -100,7 +101,7 @@ function createWindow () {
   });
 
   overlayWindow.loadFile(path.join(__dirname, 'overlay.html'));
-  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  overlayWindow.setIgnoreMouseEvents(false, { forward: false });
 }
 
 // --- BACKGROUND WORKERS (The Autonomous Flow) ---

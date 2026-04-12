@@ -98,9 +98,7 @@
                         </label>
 
                         <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #444;">
-                            <button onclick="resetDevice()" style="background: #cc3300; width: auto; font-size: 0.85em; padding: 6px 12px; margin: 0;">
-                                🔄 Reset Macropad Connection
-                            </button>
+                            <button id="btn-reset-conn" onclick="resetDevice()" style="margin: 0;">🔄 Reset Macropad Connection</button>
                             <p style="color: #888; font-size: 0.8em; margin: 5px 0 0 0;">Use this if you plug in a different physical keyboard.</p>
                         </div>
                         
@@ -142,7 +140,7 @@
             <h3 id="custom-alert-title" style="margin-top: 0;"></h3>
             <p id="custom-alert-message" style="color: #aaa; font-size: 0.9em; margin-bottom: 20px;"></p>
             <div style="display: flex; gap: 10px; justify-content: center;">
-                <button id="custom-alert-confirm" style="margin: 0;"></button>
+                <button id="custom-alert-confirm" style="margin: 0;">Yes</button>
                 <button style="background: #555; margin: 0;" onclick="closeCustomAlert()">Cancel</button>
             </div>
         </div>
@@ -164,9 +162,9 @@
             <h3 style="margin-top: 0;">Closing Macropad Studio</h3>
             <p style="color: #aaa; font-size: 0.9em; margin-bottom: 20px;">Do you want to minimize to the system tray to keep your macropad running, or quit completely?</p>
             <div style="display: flex; gap: 10px; justify-content: center;">
-                <button style="background: #4CAF50; margin: 0;" onclick="handleClose('minimize')">Minimize</button>
-                <button style="background: #cc3300; margin: 0;" onclick="handleClose('quit')">Quit App</button>
-                <button style="background: #555; margin: 0;" onclick="handleClose('cancel')">Cancel</button>
+                <button id="btn-minimize" style="margin: 0;" onclick="handleClose('minimize')">Minimize to Tray</button>
+                <button id="btn-quit" style="margin: 0;" onclick="handleClose('quit')">Quit App</button>
+                <button style="margin: 0;" onclick="handleClose('cancel')">Cancel</button>
             </div>
         </div>
     </div>
