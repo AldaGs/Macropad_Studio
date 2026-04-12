@@ -62,14 +62,14 @@ document.getElementById('custom-prompt-input').addEventListener('keypress', func
 function connectMacropad() {
     pulseButton('connectBtn');
     window.electronAPI.startLuaMacros();
-    const statusBar = document.getElementById('status-bar');
+    
+    // Set to Waiting State
     const statusText = document.getElementById('status-text');
-    const btn = document.getElementById('connectBtn');
-    statusBar.classList.add('connected');
-    statusText.innerText = "Status: Active & Listening";
-    statusText.style.color = "#28a745";
-    btn.style.display = "none";
-    showToast("LuaMacros started! Press your macropad key to lock it in.");
+    statusText.innerText = "Status: Waiting for keypress...";
+    statusText.style.color = "#d4a373"; // Orange warning color
+    
+    document.getElementById('connectBtn').style.display = "none";
+    showToast("Press any key on your Macropad now!");
 }
 
 window.electronAPI.onShowCloseModal(() => { document.getElementById('close-modal').classList.add('show'); });
@@ -115,6 +115,45 @@ function toggleMinimizeTray() {
             window.electronAPI.saveMacros(appData); 
             showToast("Minimize setting saved!");
     }
+
+// --- ACCORDION LOGIC ---
+function toggleSettings() {
+    const content = document.getElementById('settings-content');
+    const chevron = document.getElementById('settings-chevron');
+    
+    content.classList.toggle('open');
+    
+    if (content.classList.contains('open')) {
+        chevron.style.transform = "rotate(180deg)";
+    } else {
+        chevron.style.transform = "rotate(0deg)";
+    }
+}
+
+// --- RESET DEVICE LOGIC ---
+function resetDevice() {
+    showCustomAlert(
+        "Reset Device Connection?", 
+        "This will forget your currently paired Macropad. LuaMacros will ask you to press a key to pair a new device. Are you sure?", 
+        "Reset Connection", 
+        "#cc3300", 
+        () => {
+            // Tell the backend to delete the ID and restart LuaMacros
+            window.electronAPI.resetHardwareId();
+            showToast("Device connection reset!");
+            
+            // Auto-close the settings drawer for a clean UI reset
+            toggleSettings();
+            
+            // Reset the status bar to show it is listening again
+            const statusBar = document.getElementById('status-bar');
+            const statusText = document.getElementById('status-text');
+            statusBar.classList.remove('connected');
+            statusText.innerText = "Status: Waiting for new device...";
+            statusText.style.color = "#aaa";
+        }
+    );
+}
 
 function toggleActionInput() {
     document.getElementById('shortcut-input').value = '';
@@ -550,6 +589,15 @@ function pulseButton(buttonId) {
     btn.classList.add('btn-pulse');
 }
 
+function toggleStartMinimized() {
+    if (!appData.settings) appData.settings = {}; 
+    appData.settings.startMinimized = document.getElementById('start-minimized-toggle').checked;
+    window.electronAPI.saveMacros(appData); 
+}
+
+// Inside your DOMContentLoaded block:
+document.getElementById('start-minimized-toggle').checked = appData.settings.startMinimized || false;
+
 window.addEventListener('DOMContentLoaded', async () => {
     appData = await window.electronAPI.loadMacros();
     if (!appData.settings) appData.settings = { autoApply: false, showOSD: false };
@@ -564,6 +612,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('auto-apply-toggle').checked = (appData.settings.autoApply === appData.activeProfile);
     document.getElementById('osd-toggle').checked = appData.settings.showOSD || false;
     document.getElementById('minimize-tray-toggle').checked = appData.settings.minimizeToTray || false;
+    document.getElementById('start-minimized-toggle').checked = appData.settings.startMinimized || false;
     
     updateProfileDropdown();
     renderList();
@@ -572,7 +621,37 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (appData.settings.autoApply) {
         window.electronAPI.saveMacros(appData);
     }
+
+    // --- THE AUTO-CONNECT LOGIC ---
+    // If we have a valid 8-character ID saved, start the engine immediately!
+    if (appData.settings.hardwareId && appData.settings.hardwareId.length >= 8) {
+        window.electronAPI.startLuaMacros();
+
+        // Instantly flip the UI to the "Connected" state!
+        const statusBar = document.getElementById('status-bar');
+        const statusText = document.getElementById('status-text');
+        const btn = document.getElementById('connectBtn');
+        
+        statusBar.classList.add('connected');
+        statusText.innerText = "Status: Active & Listening";
+        statusText.style.color = "#28a745";
+        btn.style.display = "none"; // Hide the connect button
+    }
 });
+
+window.electronAPI.onHardwareLocked(() => {
+    // The key was pressed and the ID was saved!
+    const statusBar = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+    const btn = document.getElementById('connectBtn'); // Grab the button
+    
+    statusBar.classList.add('connected');
+    statusText.innerText = "Status: Active & Listening";
+    statusText.style.color = "#28a745";
+    btn.style.display = "none"; // Hide the connect button
+    
+    showToast("Hardware linked! Auto-connect enabled.");
+}); 
 
 window.electronAPI.onLoadExternalProfile((event, importedMacros) => {
     window.focus(); 

@@ -70,6 +70,44 @@
         </div>
 
         <div style="display: flex; flex-direction: column;">
+            <div class="settings-accordion">
+                <button class="settings-toggle" onclick="toggleSettings()">
+                    ⚙️ Application Settings <span class="settings-chevron" id="settings-chevron">▼</span>
+                </button>
+                
+                <div class="settings-content" id="settings-content">
+                    <div class="settings-inner">
+                        <label class="setting-row">
+                            <input type="checkbox" id="auto-apply-toggle" onchange="toggleAutoApply()"> 
+                            Auto-Run Profile on Startup
+                        </label>
+                        
+                        <label class="setting-row">
+                            <input type="checkbox" id="osd-toggle" onchange="toggleOSD()"> 
+                            Show OSD Notifications
+                        </label>
+
+                        <label class="setting-row">
+                            <input type="checkbox" id="minimize-tray-toggle" onchange="toggleMinimizeTray()"> 
+                            Always Minimize to System Tray on Close
+                        </label>
+
+                        <label class="setting-row">
+                            <input type="checkbox" id="start-minimized-toggle" onchange="toggleStartMinimized()"> 
+                            Start Application Minimized to Tray
+                        </label>
+
+                        <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #444;">
+                            <button onclick="resetDevice()" style="background: #cc3300; width: auto; font-size: 0.85em; padding: 6px 12px; margin: 0;">
+                                🔄 Reset Macropad Connection
+                            </button>
+                            <p style="color: #888; font-size: 0.8em; margin: 5px 0 0 0;">Use this if you plug in a different physical keyboard.</p>
+                        </div>
+                        
+                        <div style="height: 15px;"></div>
+                    </div>
+                </div>
+            </div>
             
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 15px;">
@@ -91,24 +129,6 @@
                 
                 <ul class="macro-list" id="macro-list"></ul>
                 
-                <div style="display: flex; gap: 20px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 15px;">
-                    <label style="color: #aaa; font-size: 0.85em; display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                        <input type="checkbox" id="auto-apply-toggle" onchange="toggleAutoApply()" style="width: auto; margin: 0;"> 
-                        Auto-Run AHK on Startup
-                    </label>
-
-                    <label style="color: #aaa; font-size: 0.85em; display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                        <input type="checkbox" id="osd-toggle" onchange="toggleOSD()" style="width: auto; margin: 0;"> 
-                        Show OSD Notifications
-                    </label>
-                    <div style="display: flex; gap: 20px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 15px;">
-                        <label style="color: #aaa; font-size: 0.85em; display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                            <input type="checkbox" id="minimize-tray-toggle" onchange="toggleMinimizeTray()" style="width: auto; margin: 0;"> 
-                            Always Minimize to Tray
-                        </label>
-                    </div>
-                </div>
-
                 <button id="save-apply-btn" style="background: #28a745; font-size: 1.1em; padding: 15px; position: relative; overflow: hidden;" onclick="saveAndApply()">
                     <span id="rocket-icon" style="display: inline-block;">🚀</span> Save & Apply Profile
                 </button>

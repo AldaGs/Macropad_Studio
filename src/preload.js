@@ -24,5 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     exportProfile: (profileData) => ipcRenderer.invoke('export-profile', profileData),
     importProfile: () => ipcRenderer.invoke('import-profile'),
 
-    onLoadExternalProfile: (callback) => ipcRenderer.on('load-external-profile', callback)
+    onLoadExternalProfile: (callback) => ipcRenderer.on('load-external-profile', callback),
+
+    resetHardwareId: () => ipcRenderer.send('reset-hardware-id'),
+    onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback)
 });

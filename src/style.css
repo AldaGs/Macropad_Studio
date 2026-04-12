@@ -71,3 +71,67 @@ button:hover { background: #005f9e; }
 
 .btn-pulse { animation: standardPulse 0.3s ease-out; }
 @keyframes standardPulse { 0% { transform: scale(1); } 50% { transform: scale(0.95); } 100% { transform: scale(1); } }
+
+
+/* --- SETTINGS ACCORDION --- */
+.settings-accordion { 
+    background: rgba(0, 0, 0, 0.3); 
+    border-radius: 8px; 
+    margin-bottom: 15px; 
+    border: 1px solid #444; 
+}
+.settings-toggle { 
+    width: 100%; 
+    background: transparent; 
+    border: none; 
+    padding: 12px 15px; 
+    color: #888; 
+    text-align: left; 
+    font-size: 0.8em; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+    cursor: pointer; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    transition: background 0.2s, color 0.2s; 
+    border-radius: 8px;
+}
+.settings-toggle:hover { 
+    background: rgba(255, 255, 255, 0.05); 
+    color: #ccc; 
+}
+.settings-chevron { 
+    transition: transform 0.3s ease; 
+}
+
+/* The Magic Reveal */
+.settings-content { 
+    display: grid; 
+    grid-template-rows: 0fr; 
+    transition: grid-template-rows 0.3s ease-out; 
+}
+.settings-content.open { 
+    grid-template-rows: 1fr; 
+}
+.settings-inner { 
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 12px; 
+    padding: 0 15px; 
+}
+.setting-row {
+    color: #ccc; 
+    font-size: 0.85em; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    cursor: pointer; 
+    margin: 0; 
+    justify-content: flex-start; /* Forces left alignment */
+}
+.setting-row input {
+    width: auto;
+    margin: 0;
+}
