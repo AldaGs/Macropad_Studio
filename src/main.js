@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog } = require('electron'); // ADDED dialog
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog, Notification } = require('electron'); 
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process'); 
@@ -50,6 +50,15 @@ function createWindow () {
               startHidden = true; // The user checked the box!
           }
       } catch(e) { console.error("Error reading startup settings", e); }
+  }
+
+  // --- NEW: THE NATIVE NOTIFICATION ---
+  if (startHidden && Notification.isSupported()) {
+      new Notification({
+          title: 'Macropad Studio',
+          body: 'Started in the system tray. Happy Macros!',
+          icon: path.join(__dirname, 'assets/icon.ico')
+      }).show();
   }
 
   mainWindow = new BrowserWindow({
