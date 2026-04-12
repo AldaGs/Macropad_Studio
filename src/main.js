@@ -226,13 +226,18 @@ function startBackgroundWorkers() {
                 end)
                 `;
 
-    fs.writeFileSync(path.join(luaDir, 'start.lua'), luaScript, 'utf-8');
+// Save start.lua to the universally writable AppData folder ---
+    const luaScriptPath = path.join(app.getPath('userData'), 'start.lua');
+    const safeLuaPath = luaScriptPath.replace(/\\/g, '/'); // Prevents escape-character bugs in PowerShell
+    
+    fs.writeFileSync(luaScriptPath, luaScript, 'utf-8');
 
     exec(`taskkill /f /im LuaMacros.exe`, () => {
-        const psCommand = `powershell -WindowStyle Hidden -Command "Start-Process -FilePath '${luaExe}' -ArgumentList 'start.lua', '-r' -WorkingDirectory '${luaDir}' -WindowStyle Hidden"`;
+        // --- THE FIX: Pass the absolute path of the new start.lua to LuaMacros ---
+        const psCommand = `powershell -WindowStyle Hidden -Command "Start-Process -FilePath '${luaExe}' -ArgumentList '\\"${safeLuaPath}\\"', '-r' -WorkingDirectory '${luaDir}' -WindowStyle Hidden"`;
         exec(psCommand);
 
-        // --- NEW: THE MISSING UI SIGNAL ---
+        // THE MISSING UI SIGNAL ---
         // If we booted silently using an existing ID, tell the frontend it worked!
         if (savedId && savedId !== "") {
             setTimeout(() => {
