@@ -101,6 +101,12 @@
                         <input type="checkbox" id="osd-toggle" onchange="toggleOSD()" style="width: auto; margin: 0;"> 
                         Show OSD Notifications
                     </label>
+                    <div style="display: flex; gap: 20px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 15px;">
+                        <label style="color: #aaa; font-size: 0.85em; display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="minimize-tray-toggle" onchange="toggleMinimizeTray()" style="width: auto; margin: 0;"> 
+                            Always Minimize to Tray
+                        </label>
+                    </div>
                 </div>
 
                 <button id="save-apply-btn" style="background: #28a745; font-size: 1.1em; padding: 15px; position: relative; overflow: hidden;" onclick="saveAndApply()">

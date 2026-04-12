@@ -109,6 +109,13 @@ function toggleOSD() {
     showToast("OSD setting saved!");
 }
 
+function toggleMinimizeTray() {
+            if (!appData.settings) appData.settings = {}; 
+            appData.settings.minimizeToTray = document.getElementById('minimize-tray-toggle').checked;
+            window.electronAPI.saveMacros(appData); 
+            showToast("Minimize setting saved!");
+    }
+
 function toggleActionInput() {
     document.getElementById('shortcut-input').value = '';
     document.getElementById('shortcut-input').dataset.ahk = '';
@@ -556,6 +563,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 2. Sync the UI checkboxes
     document.getElementById('auto-apply-toggle').checked = (appData.settings.autoApply === appData.activeProfile);
     document.getElementById('osd-toggle').checked = appData.settings.showOSD || false;
+    document.getElementById('minimize-tray-toggle').checked = appData.settings.minimizeToTray || false;
     
     updateProfileDropdown();
     renderList();
@@ -587,4 +595,14 @@ window.electronAPI.onLoadExternalProfile((event, importedMacros) => {
             showToast("External profile imported successfully!");
         }
     );
+});
+
+window.electronAPI.onShowCloseModal(() => { 
+    // If the user checked the box, bypass the modal and instantly minimize!
+    if (appData.settings && appData.settings.minimizeToTray) {
+        handleClose('minimize');
+    } else {
+        // Otherwise, show the prompt as normal
+        document.getElementById('close-modal').classList.add('show'); 
+    }
 });
