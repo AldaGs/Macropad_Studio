@@ -9,12 +9,12 @@
 <body>
     <div class="status-bar" id="status-bar">
         <div>
-            <h2 style="margin: 0; font-size: 1.2em;">🎛️ Macropad Studio</h2>
+            <h2 style="margin: 0; font-size: 1.2em; display: flex; align-items: center; gap: 8px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg> Macropad Studio</h2>
             <span id="status-text" style="color: #aaa; font-size: 0.9em; font-weight: bold;">Status: Waiting for connection...</span>
         </div>
         <div style="display: flex; gap: 10px;">
-            <button id="toggle-btn" style="width: auto; margin: 0; background: #555;" onclick="pulseButton('toggle-btn'); window.electronAPI.toggleOverlay()">⌨️ Toggle Overlay</button>
-            <button id="connectBtn" style="width: auto; margin: 0;" onclick="connectMacropad()">🔗 Connect Macropad</button>
+            <button id="toggle-btn" style="width: auto; margin: 0; background: #555;" onclick="pulseButton('toggle-btn'); window.electronAPI.toggleOverlay()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg> Toggle Overlay</button>
+            <button id="connectBtn" style="width: auto; margin: 0;" onclick="connectMacropad()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Connect Macropad</button>
         </div>
     </div>
 
@@ -63,7 +63,7 @@
 
             <div style="display: flex; gap: 10px;">
                 <button id="add-btn" onclick="addMacroToList()">
-                    <span id="add-icon" style="display: inline-block;">➕</span> Add to List
+                    <span id="add-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add to List
                 </button>
                 <button id="cancel-btn" onclick="resetForm()" style="display: none; background: #555;">Cancel Edit</button>
             </div>
@@ -72,7 +72,7 @@
         <div style="display: flex; flex-direction: column;">
             <div class="settings-accordion">
                 <button class="settings-toggle" onclick="toggleSettings()">
-                    ⚙️ Application Settings <span class="settings-chevron" id="settings-chevron">▼</span>
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg> Application Settings <span class="settings-chevron" id="settings-chevron">▼</span>
                 </button>
                 
                 <div class="settings-content" id="settings-content">
@@ -98,7 +98,7 @@
                         </label>
 
                         <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #444;">
-                            <button id="btn-reset-conn" onclick="resetDevice()" style="margin: 0;">🔄 Reset Macropad Connection</button>
+                            <button id="btn-reset-conn" onclick="resetDevice()" style="margin: 0;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> Reset Macropad Connection</button>
                             <p style="color: #888; font-size: 0.8em; margin: 5px 0 0 0;">Use this if you plug in a different physical keyboard.</p>
                         </div>
                         
@@ -114,21 +114,21 @@
                     <div style="display: flex; gap: 5px; align-items: center;">
                         <span style="color: #aaa; font-size: 0.9em; margin-right: 0px;">Profile:</span>
                         <select id="profile-select" onchange="switchProfile()" style="width: 120px; padding: 5px; margin: 0;"></select>
-                        <button id="new-profile-btn" onclick="createNewProfile()" style="margin: 0; padding: 5px 10px; width: auto; background: #555;">➕New</button>
-                        <button id="delete-profile-btn" onclick="deleteCurrentProfile()" style="margin: 0; padding: 5px 10px; width: auto; background: #cc3300;" title="Delete Profile">🗑️</button>
+                        <button id="new-profile-btn" onclick="createNewProfile()" style="margin: 0; padding: 5px 10px; width: auto; background: #555;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New</button>
+                        <button id="delete-profile-btn" onclick="deleteCurrentProfile()" style="margin: 0; padding: 5px 10px; width: auto; background: #cc3300;" title="Delete Profile"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                     </div>
                 </div>
                 
 
                 <div style="display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 15px;">
-                    <button id="import-btn" style="margin: 0; background: #444; color: #ddd; font-size: 0.85em;" onclick="importProfile()">📂 Import .mps</button>
-                    <button id="export-btn" style="margin: 0; background: #444; color: #ddd; font-size: 0.85em;" onclick="exportProfile()">💾 Export .mps</button>
+                    <button id="import-btn" style="margin: 0; background: #444; color: #ddd; font-size: 0.85em;" onclick="importProfile()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> Import .mps</button>
+                    <button id="export-btn" style="margin: 0; background: #444; color: #ddd; font-size: 0.85em;" onclick="exportProfile()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg> Export .mps</button>
                 </div>
                 
                 <ul class="macro-list" id="macro-list"></ul>
                 
                 <button id="save-apply-btn" style="background: #28a745; font-size: 1.1em; padding: 15px; position: relative; overflow: hidden;" onclick="saveAndApply()">
-                    <span id="rocket-icon" style="display: inline-block;">🚀</span> Save & Apply Profile
+                    <span id="rocket-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg></span> Save & Apply Profile
                 </button>
             </div>
 

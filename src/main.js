@@ -475,12 +475,25 @@ function handleExternalMpsFile(filePath) {
 }
 
 ipcMain.on('reset-hardware-id', () => {
+    // The saved ID actually lives in profiles.json's settings.hardwareId,
+    // which is what startBackgroundWorkers() reads to decide auto-connect vs. recording mode.
+    const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
+    if (fs.existsSync(jsonFilePath)) {
+        try {
+            const currentData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
+            if (currentData.settings) currentData.settings.hardwareId = "";
+            fs.writeFileSync(jsonFilePath, JSON.stringify(currentData, null, 2), 'utf-8');
+        } catch (e) { console.error(e); }
+    }
+
     const hardwareIdFile = path.join(app.getPath('userData'), 'macropad_id.txt');
     if (fs.existsSync(hardwareIdFile)) {
-        fs.unlinkSync(hardwareIdFile); // Deletes the saved ID
+        fs.unlinkSync(hardwareIdFile); // legacy file, clear it too just in case
     }
-    // Restart LuaMacros so it asks for a key press again
-    startBackgroundWorkers(); 
+
+    // Restart LuaMacros with no saved ID, so it opens the recording flow
+    // and lets the user pick/record a different keyboard.
+    startBackgroundWorkers();
 });
 
 // --- APP LIFECYCLE ---

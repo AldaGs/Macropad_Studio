@@ -203,3 +203,11 @@ button:active { transform: translateY(1px); }
 
 .icon-spin { animation: spin-anim 0.4s ease-in-out; }
 @keyframes spin-anim { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.2); } 100% { transform: rotate(360deg) scale(1); } }
+
+.icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+    stroke: currentColor;
+}

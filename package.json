@@ -51,5 +51,8 @@
       "shortcutName": "Macropad Studio",
       "license": "LICENSE"
     }
+  },
+  "dependencies": {
+    "lucide-static": "^1.23.0"
   }
 }

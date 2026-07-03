@@ -367,7 +367,7 @@ function resetForm(delayButtonReset = false) {
     
     const restoreButton = () => {
         const addBtn = document.getElementById('add-btn');
-        addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;">➕</span> Add to List`;
+        addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add to List`;
         addBtn.style.background = "#007acc";
         addBtn.style.color = "white";
         document.getElementById('cancel-btn').style.display = 'none';
@@ -498,7 +498,7 @@ function editMacro(button) {
     
     editingKeyId = span.getAttribute('data-keyid');
     const addBtn = document.getElementById('add-btn');
-    addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;">💾</span> Update Macro`;
+    addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Update Macro`;
     addBtn.style.background = "#d4a373";
     addBtn.style.color = "#1e1e1e";
     

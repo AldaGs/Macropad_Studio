@@ -19,7 +19,9 @@ Macropad Studio is a Windows desktop application built with **Electron**, **Node
 * **Import & Export:** Share your setups! Export your profiles as custom `.mps` files and double-click them to import them later.
 * **On-Screen Display (OSD):** Optional, non-intrusive floating notifications tell you exactly what macro you just triggered.
 * **Interactive Overlay:** A transparent, floating ghost window that shows your current key mappings. Hover over keys to see the active keys physically depress on-screen.
-* **System Tray Integration:** Runs silently in the background. Close the window to minimize it to the tray, keeping your macros active without cluttering your taskbar.
+* **System Tray Integration:** Runs silently in the background with native OS tray notifications. Close the window to minimize it to the tray, keeping your macros active without cluttering your taskbar.
+* **Auto-Start:** Launch with Windows and reconnect automatically to your saved macropad, with the option to start minimized straight to the tray.
+* **Draggable Overlay Chassis:** Reposition the floating keyboard overlay anywhere on screen; its position is remembered between sessions.
 * **Auto-Run:** Designate a specific profile to compile and run automatically when your computer boots.
 
 ## Tech Stack
@@ -63,6 +65,8 @@ To compile the app into a standalone Windows .exe installer
 3. Assign an Action: Choose whether to send a keyboard shortcut (e.g., Ctrl+Shift+C), launch a program (e.g., C:\Photoshop.exe), or run raw AHK v2 code.
 
 4. Save & Apply: Click the 🚀 Save & Apply Profile button. The app will generate the background script and your macropad is ready to use!
+
+5. Switching Devices: If you want to use a different secondary keyboard, open Settings and click 🔄 Reset Macropad Connection. This clears the saved hardware ID and reopens the Lua recording flow so you can press a key on the new device to link it.
 
 ## Future Roadmap
 [ ] Add support for 3+ simultaneous keyboards/macropads.
