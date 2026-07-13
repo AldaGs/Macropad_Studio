@@ -249,6 +249,23 @@ function startBackgroundWorkers() {
     });
 }
 
+// --- Toast text builder: turns a description into an AHK expression, ---
+// --- swapping live placeholders for FormatTime() calls evaluated on each press. ---
+function buildToastArg(text) {
+    const tokens = {
+        '{time}': 'FormatTime(, "hh:mm:ss tt")',
+        '{date}': 'FormatTime(, "dddd, MMMM d, yyyy")',
+        '{datetime}': 'FormatTime(, "dddd, MMMM d, yyyy  hh:mm:ss tt")'
+    };
+    // Split on the placeholders while keeping them, then stitch back as an AHK expression
+    const parts = String(text).split(/(\{datetime\}|\{time\}|\{date\})/g).filter(p => p !== '');
+    const pieces = parts.map(p => {
+        if (tokens[p]) return tokens[p];
+        return '"' + p.replace(/"/g, '""') + '"'; // literal text -> quoted, quotes escaped
+    });
+    return pieces.length ? pieces.join(' . ') : '""';
+}
+
 // --- IPC LISTENERS (Brain <-> UI Communication) ---
 ipcMain.on('save-macros', (event, data) => {
     const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
@@ -264,8 +281,18 @@ ipcMain.on('save-macros', (event, data) => {
     let ahkCode = `#Requires AutoHotkey v2.0\n#SingleInstance Force\n\n`;
     ahkCode += `#Include "${customFilePath.replace(/\\/g, '/')}"\n\n`;
 
-    // --- NEW: Inject the OSD Graphics Engine if the setting is ON ---
-    if (data.settings && data.settings.showOSD) {
+    // Resolve the active profile up front so we can detect clock macros before building the engine
+    const activeProfile = data.activeProfile;
+    const macros = data.profiles[activeProfile] || [];
+    const osdOn = !!(data.settings && data.settings.showOSD);
+    const hasClock = macros.some(m => m.type === 'clock');
+
+    // Toast background color (user setting). AHK wants a bare 6-hex value, no leading '#'.
+    let toastColor = (data.settings && data.settings.toastColor) || '#28a745';
+    toastColor = toastColor.replace(/[^0-9a-fA-F]/g, '').slice(0, 6).padEnd(6, '0');
+
+    // --- Inject the OSD Graphics Engine if the setting is ON, or a clock macro needs it ---
+    if (osdOn || hasClock) {
         ahkCode += `
         ; --- OSD Notification Engine ---
         global ToastGui := ""
@@ -280,7 +307,7 @@ ipcMain.on('save-macros', (event, data) => {
 
             ; 2. Build a brand new window
             ToastGui := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x20")
-            ToastGui.BackColor := "28a745"
+            ToastGui.BackColor := "${toastColor}"
             ToastGui.SetFont("s16 cWhite bold", "Segoe UI")
             ToastGui.MarginX := 25
             ToastGui.MarginY := 12
@@ -317,29 +344,32 @@ ipcMain.on('save-macros', (event, data) => {
     ahkCode += `    SavedKey := FileRead("${userDataPath}/pressed_key.txt")\n\n`;
 
     // Loop through the active profile
-    const activeProfile = data.activeProfile;
-    const macros = data.profiles[activeProfile] || [];
-
     macros.forEach(macro => {
         ahkCode += `    if (SavedKey == "${macro.keyId}") {\n`;
-        
-        // --- NEW: Trigger the OSD before executing the action ---
-        if (data.settings && data.settings.showOSD) {
-            // Use the custom description if they wrote one, otherwise use the visual value
-            let descriptor = macro.desc ? macro.desc : macro.visualValue;
-            // Escape any quotes so it doesn't break the AHK string
-            descriptor = descriptor.replace(/"/g, '""'); 
-            ahkCode += `        ShowToast("${descriptor}")\n`;
-        }
 
-        // Add the actual action
-        if (macro.type === 'send') {
-            ahkCode += `        Send("${macro.value}")\n`;
-        } else if (macro.type === 'run') {
-            ahkCode += `        Run("${macro.value}")\n`;
-        } else if (macro.type === 'custom') {
-            const indentedCustom = macro.value.split('\n').map(line => `        ${line}`).join('\n');
-            ahkCode += `${indentedCustom}\n`;
+        if (macro.type === 'clock') {
+            // Clock macros ARE the toast — always show it, using the chosen placeholder
+            // (or a custom description that may itself contain {time}/{date}/{datetime}).
+            const clockText = macro.desc ? macro.desc : macro.value; // value is "{datetime}" etc.
+            ahkCode += `        ShowToast(${buildToastArg(clockText)})\n`;
+        } else {
+            // --- Trigger the OSD before executing the action (when the setting is ON) ---
+            if (osdOn) {
+                // Use the custom description if they wrote one, otherwise use the visual value
+                let descriptor = macro.desc ? macro.desc : macro.visualValue;
+                // Supports live placeholders like {time}, {date}, {datetime}
+                ahkCode += `        ShowToast(${buildToastArg(descriptor)})\n`;
+            }
+
+            // Add the actual action
+            if (macro.type === 'send') {
+                ahkCode += `        Send("${macro.value}")\n`;
+            } else if (macro.type === 'run') {
+                ahkCode += `        Run("${macro.value}")\n`;
+            } else if (macro.type === 'custom') {
+                const indentedCustom = macro.value.split('\n').map(line => `        ${line}`).join('\n');
+                ahkCode += `${indentedCustom}\n`;
+            }
         }
         ahkCode += `    }\n`;
     });

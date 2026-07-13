@@ -34,6 +34,7 @@
                 <select id="action-type" onchange="toggleActionInput()">
                     <option value="send">Press a Keyboard Shortcut</option>
                     <option value="run">Launch a Program</option>
+                    <option value="clock">Show Time &amp; Date (Toast)</option>
                     <option value="custom">Run Raw AHK Code</option>
                 </select>
             </div>
@@ -54,6 +55,16 @@
             <div class="input-group" id="input-custom" style="display: none;">
                 <label>3. Paste your AHK v2 Code</label>
                 <textarea id="custom-input" rows="4" placeholder="Paste your raw code here..." style="resize: vertical;"></textarea>
+            </div>
+
+            <div class="input-group" id="input-clock" style="display: none;">
+                <label>3. What should the toast show?</label>
+                <select id="clock-format">
+                    <option value="{datetime}">Date &amp; Time</option>
+                    <option value="{time}">Time only</option>
+                    <option value="{date}">Date only</option>
+                </select>
+                <p style="color: #888; font-size: 0.8em; margin: 6px 0 0 0;">Pressing this key pops a toast with your PC's current clock. Tip: you can also type <code>{time}</code>, <code>{date}</code> or <code>{datetime}</code> anywhere inside the Custom Description below.</p>
             </div>
 
             <div class="input-group">
@@ -83,8 +94,13 @@
                         </label>
                         
                         <label class="setting-row">
-                            <input type="checkbox" id="osd-toggle" onchange="toggleOSD()"> 
+                            <input type="checkbox" id="osd-toggle" onchange="toggleOSD()">
                             Show OSD Notifications
+                        </label>
+
+                        <label class="setting-row">
+                            <span>Toast Color</span>
+                            <input type="color" id="toast-color" value="#28a745" onchange="toggleToastColor()" style="width: 40px; height: 26px; padding: 0; border: none; background: none; cursor: pointer;">
                         </label>
 
                         <label class="setting-row">

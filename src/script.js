@@ -109,6 +109,13 @@ function toggleOSD() {
     showToast("OSD setting saved!");
 }
 
+function toggleToastColor() {
+    if (!appData.settings) appData.settings = {};
+    appData.settings.toastColor = document.getElementById('toast-color').value;
+    window.electronAPI.saveMacros(appData);
+    showToast("Toast color saved!");
+}
+
 function toggleMinimizeTray() {
             if (!appData.settings) appData.settings = {}; 
             appData.settings.minimizeToTray = document.getElementById('minimize-tray-toggle').checked;
@@ -163,10 +170,12 @@ function toggleActionInput() {
     document.getElementById('input-send').style.display = 'none';
     document.getElementById('input-run').style.display = 'none';
     document.getElementById('input-custom').style.display = 'none';
+    document.getElementById('input-clock').style.display = 'none';
     const actionType = document.getElementById('action-type').value;
     if (actionType === 'send') document.getElementById('input-send').style.display = 'block';
     if (actionType === 'run') document.getElementById('input-run').style.display = 'block';
     if (actionType === 'custom') document.getElementById('input-custom').style.display = 'block';
+    if (actionType === 'clock') document.getElementById('input-clock').style.display = 'block';
 }
 
 function toggleKeyManualMode() {
@@ -331,7 +340,7 @@ function renderList(animatedKeyId = null) {
         if (macro.desc) {
             displayText += `<span>${macro.desc}</span>`;
         } else {
-            displayText += `<span>${macro.type === 'send' ? `Presses '${macro.visualValue}'` : `Runs '${macro.visualValue}'`}</span>`;
+            displayText += `<span>${macro.type === 'send' ? `Presses '${macro.visualValue}'` : macro.type === 'clock' ? `Shows ${macro.visualValue}` : `Runs '${macro.visualValue}'`}</span>`;
         }
         displayText += `</div>`;
 
@@ -446,6 +455,10 @@ function addMacroToList() {
     } else if (actionType === 'custom') {
         actionValue = document.getElementById('custom-input').value;
         visualActionValue = "Custom AHK Script";
+    } else if (actionType === 'clock') {
+        const fmt = document.getElementById('clock-format');
+        actionValue = fmt.value; // {datetime} | {time} | {date}
+        visualActionValue = fmt.options[fmt.selectedIndex].text; // e.g. "Date & Time"
     }
 
     const description = document.getElementById('desc-input').value;
@@ -493,6 +506,8 @@ function editMacro(button) {
         document.getElementById('path-input').value = decodeURIComponent(span.getAttribute('data-value'));
     } else if (span.getAttribute('data-type') === 'custom') {
         document.getElementById('custom-input').value = decodeURIComponent(span.getAttribute('data-value'));
+    } else if (span.getAttribute('data-type') === 'clock') {
+        document.getElementById('clock-format').value = decodeURIComponent(span.getAttribute('data-value'));
     }
     document.getElementById('desc-input').value = span.getAttribute('data-desc') || "";
     
@@ -611,6 +626,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 2. Sync the UI checkboxes
     document.getElementById('auto-apply-toggle').checked = (appData.settings.autoApply === appData.activeProfile);
     document.getElementById('osd-toggle').checked = appData.settings.showOSD || false;
+    document.getElementById('toast-color').value = appData.settings.toastColor || '#28a745';
     document.getElementById('minimize-tray-toggle').checked = appData.settings.minimizeToTray || false;
     document.getElementById('start-minimized-toggle').checked = appData.settings.startMinimized || false;
     
