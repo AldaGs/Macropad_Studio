@@ -35,7 +35,8 @@
                     <option value="send">Press a Keyboard Shortcut</option>
                     <option value="run">Launch a Program</option>
                     <option value="clock">Show Time &amp; Date (Toast)</option>
-                    <option value="custom">Run Raw AHK Code</option>
+                    <option value="js">Run JavaScript</option>
+                    <option value="custom">Run Raw AHK Code (legacy)</option>
                 </select>
             </div>
             
@@ -53,8 +54,14 @@
             </div>
 
             <div class="input-group" id="input-custom" style="display: none;">
-                <label>3. Paste your AHK v2 Code</label>
+                <label id="custom-label">3. Paste your AHK v2 Code</label>
                 <textarea id="custom-input" rows="4" placeholder="Paste your raw code here..." style="resize: vertical;"></textarea>
+                <small id="js-help" style="display: none; color: #888; line-height: 1.6;">
+                    Available: <code>send('^c')</code>, <code>type('text')</code>, <code>await sleep(ms)</code>,
+                    <code>run('app.exe')</code>, <code>notify('msg')</code>, <code>beep(freq, ms)</code>,
+                    <code>clipboard.read/write/clear</code>, <code>await clipWait(ms)</code>.
+                    Plus <code>fetch</code>, <code>Date</code> and the rest of Node.
+                </small>
             </div>
 
             <div class="input-group" id="input-clock" style="display: none;">

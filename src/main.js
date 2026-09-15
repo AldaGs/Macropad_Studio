@@ -179,9 +179,14 @@ function startEngine() {
         userDataPath: app.getPath('userData'),
         getState: readProfiles,
         showToast,
-        openPath: (target) => shell.openPath(target).then((err) => {
-            if (err) console.error(`Could not open "${target}": ${err}`);
-        }),
+        // Fallback for run targets that are not executables. URLs need openExternal;
+        // openPath only understands filesystem paths.
+        openPath: (target) => {
+            if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) return shell.openExternal(target);
+            return shell.openPath(target).then((err) => {
+                if (err) console.error(`Could not open "${target}": ${err}`);
+            });
+        },
     });
 
     const saved = readProfiles().settings && readProfiles().settings.hardwareId;

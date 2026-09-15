@@ -174,8 +174,18 @@ function toggleActionInput() {
     const actionType = document.getElementById('action-type').value;
     if (actionType === 'send') document.getElementById('input-send').style.display = 'block';
     if (actionType === 'run') document.getElementById('input-run').style.display = 'block';
-    if (actionType === 'custom') document.getElementById('input-custom').style.display = 'block';
     if (actionType === 'clock') document.getElementById('input-clock').style.display = 'block';
+
+    // js and custom share the same textarea - only the label and hint differ
+    if (actionType === 'custom' || actionType === 'js') {
+        const isJs = actionType === 'js';
+        document.getElementById('input-custom').style.display = 'block';
+        document.getElementById('custom-label').innerText = isJs ? '3. Write your JavaScript' : '3. Paste your AHK v2 Code';
+        document.getElementById('custom-input').placeholder = isJs
+            ? "send('^c');\nawait sleep(100);\ntype('hello');"
+            : 'Paste your raw code here...';
+        document.getElementById('js-help').style.display = isJs ? 'block' : 'none';
+    }
 }
 
 function toggleKeyManualMode() {
@@ -455,6 +465,9 @@ function addMacroToList() {
     } else if (actionType === 'custom') {
         actionValue = document.getElementById('custom-input').value;
         visualActionValue = "Custom AHK Script";
+    } else if (actionType === 'js') {
+        actionValue = document.getElementById('custom-input').value;
+        visualActionValue = "JavaScript";
     } else if (actionType === 'clock') {
         const fmt = document.getElementById('clock-format');
         actionValue = fmt.value; // {datetime} | {time} | {date}
@@ -504,7 +517,7 @@ function editMacro(button) {
         if (!isShortcutManual) document.getElementById('shortcut-input').dataset.ahk = decodeURIComponent(span.getAttribute('data-value'));
     } else if (span.getAttribute('data-type') === 'run') {
         document.getElementById('path-input').value = decodeURIComponent(span.getAttribute('data-value'));
-    } else if (span.getAttribute('data-type') === 'custom') {
+    } else if (span.getAttribute('data-type') === 'custom' || span.getAttribute('data-type') === 'js') {
         document.getElementById('custom-input').value = decodeURIComponent(span.getAttribute('data-value'));
     } else if (span.getAttribute('data-type') === 'clock') {
         document.getElementById('clock-format').value = decodeURIComponent(span.getAttribute('data-value'));

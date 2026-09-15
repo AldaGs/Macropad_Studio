@@ -23,6 +23,7 @@ const VK_MOD = { ctrl: 0x11, shift: 0x10, alt: 0x12, win: 0x5b };
 
 const user32 = koffi.load('user32.dll');
 const SendInput = user32.func('__stdcall', 'SendInput', 'uint32', ['uint32', 'void *', 'int']);
+const Beep = koffi.load('kernel32.dll').func('__stdcall', 'Beep', 'bool', ['uint32', 'uint32']);
 
 function writeInput(buf, i, { vk = 0, scan = 0, flags = 0 }) {
   const o = i * INPUT_BYTES;
@@ -67,6 +68,33 @@ function sendKeys(value) {
   const { buf, count } = buildInputs(events);
   if (count) SendInput(count, buf, INPUT_BYTES);
   return unknown;
+}
+
+function sendText(text) {
+  const { buf, count } = buildInputs([{ kind: 'text', text: String(text) }]);
+  if (count) SendInput(count, buf, INPUT_BYTES);
+}
+
+// Splits a run value into program + arguments.
+// ponytail: splits at the first ".exe " because an unquoted path with spaces is otherwise
+// ambiguous ("C:\Program Files\x.exe" vs "chrome.exe --flag"). Covers every real profile;
+// swap for a real quote-aware tokeniser if someone needs an argument before the .exe.
+function splitCommand(value) {
+  const v = String(value).trim();
+  const m = v.match(/^(.*?\.exe)\s+(.*)$/i);
+  if (!m) return { file: v, args: [] };
+  return { file: m[1], args: tokenizeArgs(m[2]) };
+}
+
+function tokenizeArgs(s) {
+  const args = [];
+  const re = /"([^"]*)"|(\S+)/g;
+  let m;
+  while ((m = re.exec(s))) {
+    // --flag="value" has to survive as one argument with the quotes stripped
+    args.push(m[1] !== undefined ? m[1] : m[2].replace(/"([^"]*)"/g, '$1'));
+  }
+  return args;
 }
 
 // --- Toast text ---------------------------------------------------------------
@@ -142,13 +170,9 @@ class Engine extends EventEmitter {
         const unknown = sendKeys(macro.value);
         if (unknown.length) this.emit('warning', { macro, unknown });
       } else if (macro.type === 'run') {
-        // No shell: cmd.exe splits an unquoted path at its first space, which breaks every
-        // "C:\Program Files\..." macro. CreateProcess keeps the path intact and still
-        // searches PATH for bare names like calc.exe.
-        const child = spawn(macro.value, { detached: true, stdio: 'ignore' });
-        // Folders, documents, URLs and .bat files are not executables - let the shell open those.
-        child.on('error', () => this.openPath && this.openPath(macro.value));
-        child.unref();
+        this.launch(macro.value);
+      } else if (macro.type === 'js') {
+        this.runJs(macro);
       } else if (macro.type === 'custom') {
         this.runAhk(macro.value);
       }
@@ -157,8 +181,61 @@ class Engine extends EventEmitter {
     }
   }
 
-  // ponytail: custom macros spawn AutoHotkey per press (~100ms). Kept so the existing
-  // custom macros keep working; delete this once they are ported to JS.
+  // No shell: cmd.exe splits an unquoted path at its first space, which breaks every
+  // "C:\Program Files\..." macro. CreateProcess keeps the path intact and still searches
+  // PATH for bare names like calc.exe.
+  launch(value) {
+    const { file, args } = splitCommand(value);
+    const child = spawn(file, args, { detached: true, stdio: 'ignore' });
+    // Folders, documents, URLs and .bat files are not executables - let the shell open those.
+    child.on('error', () => this.openPath && this.openPath(value));
+    child.unref();
+  }
+
+  // The helpers a js macro gets. Everything here is used by a real macro - Date, fetch and
+  // the rest of the Node globals are already in scope and need no wrapper.
+  jsContext() {
+    const { clipboard } = require('electron');
+    return {
+      send: (s) => sendKeys(s),
+      type: (t) => sendText(t),
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      run: (cmd) => this.launch(cmd),
+      notify: (text) => this.showToast(String(text), '#28a745'),
+      beep: (freq = 600, ms = 150) => Beep(freq, ms),
+      clipboard: {
+        read: () => clipboard.readText(),
+        write: (t) => clipboard.writeText(String(t)),
+        clear: () => clipboard.writeText(''),
+      },
+      // Resolves to the clipboard text once it turns non-empty, or '' if it never does.
+      clipWait: async (ms = 1000) => {
+        const until = Date.now() + ms;
+        while (Date.now() < until) {
+          const t = clipboard.readText();
+          if (t) return t;
+          await new Promise((r) => setTimeout(r, 25));
+        }
+        return '';
+      },
+    };
+  }
+
+  async runJs(macro) {
+    try {
+      const ctx = this.jsContext();
+      const keys = Object.keys(ctx).join(', ');
+      // Async wrapper so macros can await sleep() and fetch() at the top level.
+      const fn = new Function(`{ ${keys} }`, `return (async () => {\n${macro.value}\n})()`);
+      await fn(ctx);
+    } catch (e) {
+      this.emit('warning', { macro, unknown: [e.message] });
+      this.showToast(`Macro error: ${e.message}`, '#cc3300');
+    }
+  }
+
+  // ponytail: custom macros spawn AutoHotkey per press (~100ms). Kept so any unported
+  // custom macro keeps working; delete this and the AutoHotkey dependency once none remain.
   runAhk(code) {
     const userCustom = path.join(this.userDataPath, 'user_custom.ahk');
     const file = path.join(os.tmpdir(), 'mps-custom-' + process.pid + '.ahk');
@@ -195,6 +272,17 @@ function selfTest() {
   console.assert(expandPlaceholders('at {time}', d).startsWith('at 02:30:05'), 'time placeholder');
   console.assert(expandPlaceholders('{date}', d) === 'Tuesday, September 15, 2026', 'date placeholder');
   console.assert(expandPlaceholders('none', d) === 'none', 'text without placeholders is untouched');
+
+  const cmd = (v) => { const r = splitCommand(v); return r.file + ' | ' + r.args.join(' | '); };
+  console.assert(cmd('calc.exe') === 'calc.exe | ', 'bare exe, no args');
+  console.assert(cmd('C:\\Program Files\\Adobe\\AfterFX.exe') === 'C:\\Program Files\\Adobe\\AfterFX.exe | ',
+    'spaced path with no args stays whole');
+  console.assert(cmd('chrome.exe --profile-directory="Default"') === 'chrome.exe | --profile-directory=Default',
+    'quoted value inside a flag');
+  console.assert(cmd('chrome.exe --profile-directory="Default" "https://web.whatsapp.com/"')
+    === 'chrome.exe | --profile-directory=Default | https://web.whatsapp.com/', 'flag plus quoted url');
+  console.assert(cmd('C:\\Program Files\\App\\a.exe  -x  -y') === 'C:\\Program Files\\App\\a.exe | -x | -y',
+    'spaced path with args');
 
   // Regression: run macros must not go through a shell. Under shell:true cmd.exe splits an
   // unquoted path at its first space and spawn reports no error at all, so this stays silent.
