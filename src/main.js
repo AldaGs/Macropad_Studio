@@ -349,6 +349,14 @@ function startEngine() {
 // Saving is now just persistence. The engine reads profiles.json on every press, so there
 // is no script to regenerate and no process to restart.
 ipcMain.on('save-macros', (event, data) => {
+    // settings.devices belongs to main - pairing writes it. The renderer holds a copy of
+    // settings taken at startup and would write a stale one back, silently unpairing every
+    // macropad on the next save. Always keep what is on disk.
+    const onDisk = readProfiles();
+    if (!data.settings) data.settings = {};
+    data.settings.devices = (onDisk.settings && onDisk.settings.devices) || [];
+    delete data.settings.hardwareId;
+
     writeProfiles(data);
 
     const macros = (data.profiles && data.profiles[data.activeProfile]) || [];
@@ -360,7 +368,10 @@ ipcMain.on('save-macros', (event, data) => {
 ipcMain.handle('load-macros', () => {
     const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
     if (fs.existsSync(jsonFilePath)) {
-        return JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
+        // Migrate before handing it over, so the renderer never holds the pre-devices shape
+        const data = readProfiles();
+        if (migrateDevices(data)) writeProfiles(data);
+        return data;
     }
     return { activeProfile: "Default", profiles: { "Default": [] }, settings: { autoApply: false } };
 });

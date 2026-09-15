@@ -35,7 +35,19 @@ function loadLib() {
 // MapVirtualKeyW bridges them, so existing profiles keep working untouched.
 const MapVirtualKeyW = koffi.load('user32.dll').func('__stdcall', 'MapVirtualKeyW', 'uint32', ['uint32', 'uint32']);
 const MAPVK_VSC_TO_VK_EX = 3;
-const toVk = (code, extended) => MapVirtualKeyW(extended ? code | 0xE000 : code, MAPVK_VSC_TO_VK_EX);
+
+// MapVirtualKey has no NumLock context and reports numpad digits as the navigation key
+// sharing their scancode (numpad 7 -> VK_HOME). Only the E0 prefix separates them.
+// Keep this in step with NUMPAD_VK in src/capture-worker.js.
+const NUMPAD_VK = {
+  0x47: 0x67, 0x48: 0x68, 0x49: 0x69,
+  0x4b: 0x64, 0x4c: 0x65, 0x4d: 0x66,
+  0x4f: 0x61, 0x50: 0x62, 0x51: 0x63,
+  0x52: 0x60, 0x53: 0x6e,
+};
+
+const toVk = (code, extended) =>
+  (!extended && NUMPAD_VK[code]) || MapVirtualKeyW(extended ? code | 0xE000 : code, MAPVK_VSC_TO_VK_EX);
 
 const FILTER_KEY_ALL = 0xFFFF; // filter everything, decide in JS.
                                // INTERCEPTION_FILTER_KEY_DOWN is 0x01 and KEY_UP is 0x01 too - a well-known

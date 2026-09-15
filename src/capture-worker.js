@@ -17,6 +17,21 @@ const STROKE_BYTES = 24;         // InterceptionStroke is a union sized to the m
 const HWID_BYTES = 1000;         // wchar_t[500]
 const MAPVK_VSC_TO_VK_EX = 3;
 
+// MapVirtualKey has no NumLock context, so it reports every numpad digit as the navigation
+// key sharing its scancode - numpad 7 comes back as VK_HOME. The two are only told apart by
+// the E0 prefix (real Home is E0 47), which the driver hands us as the extended flag.
+// A macropad's physical keys should keep their own identity, so resolve them here.
+const NUMPAD_VK = {
+  0x47: 0x67, 0x48: 0x68, 0x49: 0x69,   // 7 8 9
+  0x4b: 0x64, 0x4c: 0x65, 0x4d: 0x66,   // 4 5 6
+  0x4f: 0x61, 0x50: 0x62, 0x51: 0x63,   // 1 2 3
+  0x52: 0x60, 0x53: 0x6e,               // 0 .
+};
+
+const scanToVk = (code, extended) =>
+  (!extended && NUMPAD_VK[code]) ||
+  MapVirtualKeyW(extended ? code | 0xe000 : code, MAPVK_VSC_TO_VK_EX);
+
 // setup:true means the driver is missing or unusable - recoverable by installing it,
 // as opposed to a genuine runtime fault.
 const fail = (message, setup = false) => {
@@ -91,7 +106,7 @@ for (;;) {
       type: 'key',
       device,
       hwid,
-      vk: MapVirtualKeyW(extended ? code | 0xe000 : code, MAPVK_VSC_TO_VK_EX),
+      vk: scanToVk(code, extended),
       extended,
       blocked,
     });
