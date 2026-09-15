@@ -514,8 +514,13 @@ function editMacro(button) {
     toggleManualMode();
 
     document.getElementById('keyId').value = span.getAttribute('data-visualkey').replace("ID:", "");
-    document.getElementById('action-type').value = span.getAttribute('data-type');
+
+    // A legacy AHK macro (from an .mps exported before the engine swap) opens in the
+    // JavaScript editor with its old code visible, so it can be rewritten in place.
+    const rawType = span.getAttribute('data-type');
+    document.getElementById('action-type').value = rawType === 'custom' ? 'js' : rawType;
     toggleActionInput();
+    if (rawType === 'custom') showToast("This was an AutoHotkey macro - rewrite it as JavaScript.", true);
     
     if (span.getAttribute('data-type') === 'send') {
         document.getElementById('shortcut-input').value = span.getAttribute('data-visualvalue');

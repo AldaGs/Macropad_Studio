@@ -249,18 +249,10 @@ function startEngine() {
     // Any legacy LuaMacros instance must go, or both engines fire on every press.
     exec('taskkill /f /im LuaMacros.exe', () => {});
 
-    // The user's permanent AHK helpers, still included by every custom macro.
-    const customFilePath = path.join(app.getPath('userData'), 'user_custom.ahk');
-    if (!fs.existsSync(customFilePath)) {
-        fs.writeFileSync(customFilePath, `; Put your permanent custom AHK v2 code here!\n; This file will NEVER be overwritten by Macropad Studio.\n`, 'utf-8');
-    }
-
     if (engine) engine.stop();
 
     engine = new Engine({
         dllPath: path.join(baseDir, 'bin/Interception/interception.dll'),
-        ahkExe: path.join(baseDir, 'bin/AutoHotkey/AutoHotkey64.exe'),
-        userDataPath: app.getPath('userData'),
         getState: readProfiles,
         showToast,
         // Fallback for run targets that are not executables. URLs need openExternal;
@@ -519,8 +511,4 @@ app.on('will-quit', () => {
     // the macropad stays swallowed until the driver notices the context is gone.
     if (engine) { engine.stop(); engine = null; }
 
-    // Custom macros spawn AutoHotkey per press; clear any that are still hanging around.
-    exec(`taskkill /f /im AutoHotkey64.exe`, (err) => {
-        if (err) console.log("AutoHotkey already closed or not found.");
-    });
 });

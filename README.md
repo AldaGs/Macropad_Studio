@@ -10,7 +10,7 @@
 
 ## Overview
 
-Macropad Studio is a Windows desktop application built with **Electron** and **Node.js**. It captures keystrokes from a designated secondary keyboard before they reach Windows, letting you remap them to complex shortcuts, launch applications, or run raw AHK v2 code without interfering with your primary keyboard.
+Macropad Studio is a Windows desktop application built with **Electron** and **Node.js**. It captures keystrokes from a designated secondary keyboard before they reach Windows, letting you remap them to complex shortcuts, launch applications, or run JavaScript without interfering with your primary keyboard.
 
 Capture runs through the [Interception](https://github.com/oblitum/Interception) kernel filter driver, so the macropad is grabbed below the OS keyboard stack. Nothing leaks through to whatever app has focus, and there is no helper process to babysit.
 
@@ -32,7 +32,7 @@ Capture runs through the [Interception](https://github.com/oblitum/Interception)
 * **Backend:** Node.js (Electron `ipcMain`)
 * **Hardware Interception:** Interception driver, called from Node through [koffi](https://koffi.dev) on a worker thread
 * **Execution Engine:** Win32 `SendInput` for shortcuts, `child_process` for launching programs
-* **Custom Macros:** AutoHotkey v2, spawned on demand
+* **Custom Macros:** JavaScript, run in-process
 
 ## Requirements
 
@@ -85,15 +85,24 @@ npm run build
 
 2. **Map a Key:** Click the "1. Press key" input box, then press the key you want to program.
 
-3. **Assign an Action:** Choose whether to send a keyboard shortcut (e.g., Ctrl+Shift+C), launch a program (e.g., `C:\Photoshop.exe`), or run raw AHK v2 code.
+3. **Assign an Action:** Choose whether to send a keyboard shortcut (e.g., Ctrl+Shift+C), launch a program (e.g., `C:\Photoshop.exe`), show the time as a toast, or run JavaScript.
 
 4. **Save:** Click 💾 Save & Apply Profile. Changes take effect immediately — there is no script to compile and no process to restart.
 
 5. **Switching Devices:** To use a different secondary keyboard, open Settings and click 🔄 Reset Macropad Connection. The next key you press on any keyboard becomes the new macropad.
 
-### Permanent AHK helpers
+### JavaScript macros
 
-Custom macros run as AutoHotkey v2. Anything you put in `%APPDATA%\macropad-studio\user_custom.ahk` is included by every custom macro and is never overwritten by the app.
+The **Run JavaScript** action gets a small helper set: `send('^c')`, `type('text')`, `await sleep(ms)`, `run('app.exe')`, `notify('msg')`, `beep(freq, ms)`, `clipboard.read/write/clear` and `await clipWait(ms)`. `fetch`, `Date` and the rest of Node are in scope too, and top-level `await` works.
+
+```js
+clipboard.clear();
+send('^c');
+const text = await clipWait(1000);
+if (text) notify(`Copied ${text.length} characters`);
+```
+
+Macros exported from a version before v2 may contain raw AutoHotkey. AutoHotkey is no longer bundled; opening such a macro puts its old code in the JavaScript editor so you can rewrite it.
 
 ## Troubleshooting
 
@@ -117,9 +126,9 @@ To inspect devices directly, `node spike-interception.js` prints the hardware ID
 ## Future Roadmap
 
 * [x] Support more than one keyboard at a time
+* [x] Drop the AutoHotkey dependency
 * [ ] MIDI controllers as a macro source
 * [ ] Raw HID for custom QMK/ZMK builds
-* [ ] Port custom macros from AHK to JS and drop the AutoHotkey dependency
 
 ## Third-party components
 

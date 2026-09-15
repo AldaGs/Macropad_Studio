@@ -124,8 +124,6 @@ function coverage() {
     for (const [prof, list] of Object.entries(d.profiles || {}))
       for (const m of list) if (m.type === 'send') rows.push([prof, m.visualKey, m.desc, m.value]);
   }
-  for (const m of JSON.parse(fs.readFileSync(__dirname + '/macros.json', 'utf8')))
-    if (m.type === 'send') rows.push(['macros.json', m.visualKey, m.desc, m.value]);
 
   let bad = 0;
   console.log(`${rows.length} send macros\n`);

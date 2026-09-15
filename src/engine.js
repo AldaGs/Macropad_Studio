@@ -5,7 +5,6 @@
 
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const { EventEmitter } = require('events');
 const { spawn } = require('child_process');
 const koffi = require('koffi');
@@ -110,9 +109,9 @@ const expandPlaceholders = (text, now = new Date()) => {
 
 // --- Engine -------------------------------------------------------------------
 class Engine extends EventEmitter {
-  constructor({ dllPath, ahkExe, userDataPath, getState, showToast, openPath }) {
+  constructor({ dllPath, getState, showToast, openPath }) {
     super();
-    Object.assign(this, { dllPath, ahkExe, userDataPath, getState, showToast, openPath });
+    Object.assign(this, { dllPath, getState, showToast, openPath });
     this.worker = null;
     this.devices = new Map();
   }
@@ -178,7 +177,10 @@ class Engine extends EventEmitter {
       } else if (macro.type === 'js') {
         this.runJs(macro);
       } else if (macro.type === 'custom') {
-        this.runAhk(macro.value);
+        // Legacy AHK macro, most likely from an .mps exported before the engine swap.
+        // AutoHotkey is no longer bundled, so say so rather than doing nothing.
+        this.emit('warning', { macro, unknown: ['AutoHotkey macro'] });
+        this.showToast('This macro needs AutoHotkey. Convert it to JavaScript.', '#cc3300');
       }
     } catch (e) {
       this.emit('error', e);
@@ -238,16 +240,6 @@ class Engine extends EventEmitter {
     }
   }
 
-  // ponytail: custom macros spawn AutoHotkey per press (~100ms). Kept so any unported
-  // custom macro keeps working; delete this and the AutoHotkey dependency once none remain.
-  runAhk(code) {
-    const userCustom = path.join(this.userDataPath, 'user_custom.ahk');
-    const file = path.join(os.tmpdir(), 'mps-custom-' + process.pid + '.ahk');
-    const header = '#Requires AutoHotkey v2.0\n#SingleInstance Off\n' +
-      (fs.existsSync(userCustom) ? '#Include "' + userCustom.replace(/\\/g, '/') + '"\n' : '');
-    fs.writeFileSync(file, header + code, 'utf-8');
-    spawn(this.ahkExe, [file], { detached: true, stdio: 'ignore' }).unref();
-  }
 }
 
 function selfTest() {
