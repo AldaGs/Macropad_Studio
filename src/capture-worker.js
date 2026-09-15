@@ -1,10 +1,10 @@
 // Runs the Interception capture loop on its own thread.
 // interception_wait blocks, so this can never live on Electron's main thread.
 //
-// in  (workerData): { dllPath, targetHwid }
-// in  (message):    { type: 'target', hwid }         retarget without restarting
+// in  (workerData): { dllPath, targetHwids }
+// in  (message):    { type: 'target', hwids }        retarget without restarting
 // out (message):    { type: 'device', device, hwid } first time a device is seen
-//                   { type: 'key', device, vk, extended, blocked }
+//                   { type: 'key', device, hwid, vk, extended, blocked }
 //                   { type: 'error', message }
 
 const { parentPort, workerData, receiveMessageOnPort } = require('worker_threads');
@@ -50,7 +50,7 @@ const isKeyboard = koffi.register(
 );
 lib.setFilter(ctx, isKeyboard, FILTER_KEY_ALL);
 
-let targetHwid = workerData.targetHwid || null;
+let targets = new Set(workerData.targetHwids || []);
 const stroke = Buffer.alloc(STROKE_BYTES);
 const hwidBuf = Buffer.alloc(HWID_BYTES);
 const hwids = new Map();
@@ -72,7 +72,7 @@ for (;;) {
   // Drain retarget messages without yielding - the loop above never returns to the event loop.
   let queued;
   while ((queued = receiveMessageOnPort(parentPort))) {
-    if (queued.message && queued.message.type === 'target') targetHwid = queued.message.hwid || null;
+    if (queued.message && queued.message.type === 'target') targets = new Set(queued.message.hwids || []);
   }
 
   if (!hwids.has(device)) {
@@ -83,12 +83,14 @@ for (;;) {
   const code = stroke.readUInt16LE(0);
   const state = stroke.readUInt16LE(2);
   const extended = (state & 2) !== 0;
-  const blocked = !!targetHwid && hwids.get(device) === targetHwid;
+  const hwid = hwids.get(device);
+  const blocked = targets.has(hwid);
 
   if ((state & 1) === 0) {   // key down only; the macro fires once per press
     parentPort.postMessage({
       type: 'key',
       device,
+      hwid,
       vk: MapVirtualKeyW(extended ? code | 0xe000 : code, MAPVK_VSC_TO_VK_EX),
       extended,
       blocked,

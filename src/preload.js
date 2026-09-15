@@ -28,6 +28,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     resetHardwareId: () => ipcRenderer.send('reset-hardware-id'),
     driverSetup: () => ipcRenderer.send('driver-setup'),
+
+    // Paired macropads
+    listDevices: () => ipcRenderer.invoke('list-devices'),
+    pairDevice: () => ipcRenderer.send('pair-device'),
+    updateDevice: (patch) => ipcRenderer.send('update-device', patch),
+    removeDevice: (hwid) => ipcRenderer.send('remove-device', hwid),
+    onDevicesChanged: (callback) => ipcRenderer.on('devices-changed', callback),
+
+    // Bind a macro by pressing the physical key on the macropad itself
+    captureKey: () => ipcRenderer.send('capture-key'),
+    cancelCapture: () => ipcRenderer.send('cancel-capture'),
+    onKeyCaptured: (callback) => ipcRenderer.on('key-captured', callback),
     onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback),
 
     // Fired when the engine has no usable hardware id and is waiting for a keypress

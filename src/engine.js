@@ -120,7 +120,7 @@ class Engine extends EventEmitter {
     if (this.worker) return;
     const { Worker } = require('worker_threads');
     this.worker = new Worker(path.join(__dirname, 'capture-worker.js'), {
-      workerData: { dllPath: this.dllPath, targetHwid: this.targetHwid() },
+      workerData: { dllPath: this.dllPath, targetHwids: this.targetHwids() },
     });
     this.worker.on('message', (m) => this.onMessage(m));
     this.worker.on('error', (e) => this.emit('error', e));
@@ -129,14 +129,21 @@ class Engine extends EventEmitter {
 
   stop() { if (this.worker) { this.worker.terminate(); this.worker = null; } }
 
-  targetHwid() {
+  targetHwids() {
     const s = this.getState();
-    return (s.settings && s.settings.hardwareId) || null;
+    return ((s.settings && s.settings.devices) || []).map((d) => d.hwid).filter(Boolean);
   }
 
-  setTarget(hwid) {
-    if (this.worker) this.worker.postMessage({ type: 'target', hwid });
+  // Push the current device list to the worker. It only takes effect on the next
+  // keystroke, since the capture loop is parked in a blocking wait until then.
+  syncTargets() {
+    if (this.worker) this.worker.postMessage({ type: 'target', hwids: this.targetHwids() });
   }
+
+  // While capturing, the next key from a bound device is reported instead of run,
+  // so the editor can bind whichever physical key the user presses.
+  captureNextKey(cb) { this.pendingCapture = cb; }
+  cancelCapture() { this.pendingCapture = null; }
 
   onMessage(m) {
     if (m.type === 'error') {
@@ -150,14 +157,26 @@ class Engine extends EventEmitter {
     }
     if (m.type === 'key') {
       this.emit('key', m);
-      if (m.blocked) this.dispatch(m.vk);
+      if (!m.blocked) return;
+
+      if (this.pendingCapture) {
+        const cb = this.pendingCapture;
+        this.pendingCapture = null;
+        return cb(m);
+      }
+      this.dispatch(m.vk, m.hwid);
     }
   }
 
-  dispatch(vk) {
+  dispatch(vk, hwid) {
     const state = this.getState();
     const macros = (state.profiles && state.profiles[state.activeProfile]) || [];
-    const macro = macros.find((m) => String(m.keyId) === String(vk));
+
+    // A macro bound to this specific macropad wins over one left on "any device",
+    // so a shared key can still be overridden per board.
+    const sameKey = macros.filter((m) => String(m.keyId) === String(vk));
+    const macro = sameKey.find((m) => m.device && m.device === hwid)
+      || sameKey.find((m) => !m.device);
     if (!macro) return;
 
     const osdOn = !!(state.settings && state.settings.showOSD);
@@ -268,6 +287,27 @@ function selfTest() {
   console.assert(expandPlaceholders('at {time}', d).startsWith('at 02:30:05'), 'time placeholder');
   console.assert(expandPlaceholders('{date}', d) === 'Tuesday, September 15, 2026', 'date placeholder');
   console.assert(expandPlaceholders('none', d) === 'none', 'text without placeholders is untouched');
+
+  // Device-aware macro resolution: specific binding beats "any device".
+  const resolve = (macros, vk, hwid) => {
+    const sameKey = macros.filter((m) => String(m.keyId) === String(vk));
+    const hit = sameKey.find((m) => m.device && m.device === hwid) || sameKey.find((m) => !m.device);
+    return hit ? hit.desc : null;
+  };
+  const padA = 'HID\\VID_046D&PID_C534&MI_00';
+  const padB = 'HID\\VID_04D9&PID_1203&MI_00';
+  const set = [
+    { keyId: '97', desc: 'any' },
+    { keyId: '97', device: padB, desc: 'B only' },
+    { keyId: '98', device: padA, desc: 'A only' },
+  ];
+  console.assert(resolve(set, 97, padA) === 'any', 'falls back to the unbound macro');
+  console.assert(resolve(set, 97, padB) === 'B only', 'device-specific beats unbound');
+  console.assert(resolve(set, 98, padA) === 'A only', 'device-specific matches');
+  console.assert(resolve(set, 98, padB) === null, 'other device gets nothing');
+  console.assert(resolve(set, 99, padA) === null, 'unmapped key gets nothing');
+  console.assert(resolve([{ keyId: '97', desc: 'legacy' }], 97, padA) === 'legacy',
+    'macros with no device field keep working on any macropad');
 
   const cmd = (v) => { const r = splitCommand(v); return r.file + ' | ' + r.args.join(' | '); };
   console.assert(cmd('calc.exe') === 'calc.exe | ', 'bare exe, no args');

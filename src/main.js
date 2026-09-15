@@ -39,6 +39,46 @@ function writeProfiles(data) {
 // engine swap and the user has to press a key once to re-link their macropad.
 const isUsableHwid = (id) => typeof id === 'string' && id.toUpperCase().startsWith('HID\\');
 
+// settings.hardwareId held one device. settings.devices holds several, each with the
+// overlay layout it should draw. Returns true if the data changed and needs writing.
+function migrateDevices(data) {
+    if (!data.settings) data.settings = {};
+    const s = data.settings;
+    if (Array.isArray(s.devices)) return false;
+
+    s.devices = isUsableHwid(s.hardwareId)
+        ? [{ hwid: s.hardwareId, name: 'Macropad 1', layout: 'full' }]
+        : [];
+    delete s.hardwareId;
+    return true;
+}
+
+const pairedDevices = () => (readProfiles().settings || {}).devices || [];
+
+// Adds a macropad to the paired list and starts capturing it immediately.
+function pairDevice(hwid) {
+    const data = readProfiles();
+    migrateDevices(data);
+    if (data.settings.devices.some((d) => d.hwid === hwid)) {
+        learningDevice = false;
+        return;
+    }
+
+    data.settings.devices.push({
+        hwid,
+        name: `Macropad ${data.settings.devices.length + 1}`,
+        layout: 'full',
+    });
+    writeProfiles(data);
+
+    learningDevice = false;
+    if (engine) engine.syncTargets();
+    if (mainWindow) {
+        mainWindow.webContents.send('hardware-locked');
+        mainWindow.webContents.send('devices-changed', data.settings.devices);
+    }
+}
+
 // --- DRIVER SETUP ---
 // Interception is a kernel filter driver: it needs an elevated install and a reboot before
 // Macropad Studio can capture anything. Silent installation from inside our own installer is
@@ -265,23 +305,16 @@ function startEngine() {
         },
     });
 
-    const saved = readProfiles().settings && readProfiles().settings.hardwareId;
-    learningDevice = !isUsableHwid(saved);
+    const data = readProfiles();
+    if (migrateDevices(data)) writeProfiles(data);
+    learningDevice = data.settings.devices.length === 0;
 
     engine.on('key', (k) => {
         if (!learningDevice) return;
-        // First key pressed while learning wins - same contract LuaMacros had.
-        const hwid = engine.devices.get(k.device);
+        // First key pressed while pairing wins - same contract LuaMacros had.
+        const hwid = k.hwid || engine.devices.get(k.device);
         if (!hwid) return;
-        learningDevice = false;
-
-        const data = readProfiles();
-        if (!data.settings) data.settings = {};
-        data.settings.hardwareId = hwid;
-        writeProfiles(data);
-        engine.setTarget(hwid);
-
-        if (mainWindow) mainWindow.webContents.send('hardware-locked');
+        pairDevice(hwid);
     });
 
     engine.on('warning', ({ macro, unknown }) => {
@@ -331,6 +364,52 @@ ipcMain.handle('load-macros', () => {
     }
     return { activeProfile: "Default", profiles: { "Default": [] }, settings: { autoApply: false } };
 });
+
+// --- DEVICE MANAGEMENT ---
+ipcMain.handle('list-devices', () => pairedDevices());
+
+ipcMain.on('pair-device', () => {
+    learningDevice = true;
+    if (!engine) startEngine();
+});
+
+ipcMain.on('update-device', (event, { hwid, name, layout }) => {
+    const data = readProfiles();
+    migrateDevices(data);
+    const dev = data.settings.devices.find((d) => d.hwid === hwid);
+    if (!dev) return;
+    if (name !== undefined) dev.name = name;
+    if (layout !== undefined) dev.layout = layout;
+    writeProfiles(data);
+    if (mainWindow) mainWindow.webContents.send('devices-changed', data.settings.devices);
+});
+
+ipcMain.on('remove-device', (event, hwid) => {
+    const data = readProfiles();
+    migrateDevices(data);
+    data.settings.devices = data.settings.devices.filter((d) => d.hwid !== hwid);
+    writeProfiles(data);
+    if (engine) engine.syncTargets();
+    if (mainWindow) mainWindow.webContents.send('devices-changed', data.settings.devices);
+});
+
+// The editor asks for the next key pressed on a macropad, so a binding is made by
+// pressing the physical key rather than guessing its code on the main keyboard.
+ipcMain.on('capture-key', () => {
+    if (!engine) return;
+    engine.captureNextKey((k) => {
+        const dev = pairedDevices().find((d) => d.hwid === k.hwid);
+        if (mainWindow) {
+            mainWindow.webContents.send('key-captured', {
+                keyId: k.vk,
+                hwid: k.hwid,
+                deviceName: dev ? dev.name : 'Macropad',
+            });
+        }
+    });
+});
+
+ipcMain.on('cancel-capture', () => { if (engine) engine.cancelCapture(); });
 
 ipcMain.on('driver-setup', () => showDriverManage());
 
@@ -441,26 +520,16 @@ function handleExternalMpsFile(filePath) {
 }
 
 ipcMain.on('reset-hardware-id', () => {
-    // The saved ID actually lives in profiles.json's settings.hardwareId,
-    // which is what startEngine() reads to decide auto-connect vs. recording mode.
-    const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
-    if (fs.existsSync(jsonFilePath)) {
-        try {
-            const currentData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
-            if (currentData.settings) currentData.settings.hardwareId = "";
-            fs.writeFileSync(jsonFilePath, JSON.stringify(currentData, null, 2), 'utf-8');
-        } catch (e) { console.error(e); }
-    }
+    const data = readProfiles();
+    migrateDevices(data);
+    data.settings.devices = [];
+    writeProfiles(data);
+    if (mainWindow) mainWindow.webContents.send('devices-changed', []);
 
-    const hardwareIdFile = path.join(app.getPath('userData'), 'macropad_id.txt');
-    if (fs.existsSync(hardwareIdFile)) {
-        fs.unlinkSync(hardwareIdFile); // legacy file, clear it too just in case
-    }
-
-    // Drop the target and go back to learning mode: the next key pressed on any keyboard
-    // becomes the new macropad. No restart needed, the worker keeps running.
+    // Forget every paired macropad and go back to pairing mode: the next key pressed on
+    // any keyboard becomes the first device again.
     learningDevice = true;
-    if (engine) engine.setTarget(null);
+    if (engine) engine.syncTargets();
     else startEngine();
 });
 

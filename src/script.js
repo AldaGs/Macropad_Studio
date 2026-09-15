@@ -10,6 +10,7 @@ const keyDictionary = {
 
 let appData = { activeProfile: "Default", profiles: { "Default": [] }, settings: { autoApply: false } };
 let editingKeyId = null;
+let pairedMacropads = [];   // kept in sync by renderDevices, used to label macro bindings
 
 let alertConfirmCallback = null;
 function showCustomAlert(title, message, confirmText, confirmColor, callback) {
@@ -142,6 +143,58 @@ function driverSetup() {
     window.electronAPI.driverSetup();
 }
 
+// --- PAIRED MACROPADS ---
+const LAYOUTS = { full: 'Full keyboard', numpad: 'Numpad', tkl: 'Tenkeyless' };
+
+function renderDevices(devices) {
+    pairedMacropads = devices;
+    renderList();   // device badges on the macro list depend on this
+
+    const host = document.getElementById('device-list');
+    if (!host) return;
+
+    if (!devices.length) {
+        host.innerHTML = '<p style="color:#888; font-size:0.85em; margin:0;">No macropads paired yet.</p>';
+        return;
+    }
+
+    host.innerHTML = devices.map((d) => {
+        const opts = Object.entries(LAYOUTS)
+            .map(([v, label]) => `<option value="${v}"${d.layout === v ? ' selected' : ''}>${label}</option>`)
+            .join('');
+        const id = encodeURIComponent(d.hwid);
+        return `<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+            <input type="text" value="${d.name}" style="flex:1; margin:0;"
+                   onchange="renameDevice('${id}', this.value)">
+            <select style="width:auto; margin:0;" onchange="relayoutDevice('${id}', this.value)">${opts}</select>
+            <button onclick="forgetDevice('${id}')" title="Forget this macropad"
+                    style="margin:0; background:#cc3300;">✕</button>
+        </div>
+        <p style="color:#666; font-size:0.72em; margin:0 0 10px 0; word-break:break-all;">${d.hwid}</p>`;
+    }).join('');
+}
+
+function pairDevice() {
+    pulseButton('btn-pair-device');
+    window.electronAPI.pairDevice();
+    showToast("Press any key on the macropad you want to add!");
+}
+
+const renameDevice = (id, name) => window.electronAPI.updateDevice({ hwid: decodeURIComponent(id), name });
+const relayoutDevice = (id, layout) => window.electronAPI.updateDevice({ hwid: decodeURIComponent(id), layout });
+
+function forgetDevice(id) {
+    const hwid = decodeURIComponent(id);
+    showCustomAlert(
+        "Forget this Macropad?",
+        "Its keys go back to typing normally. Macros bound to it are kept, but will not fire until you pair it again.",
+        "Forget", "#cc3300",
+        () => { window.electronAPI.removeDevice(hwid); showToast("Macropad forgotten."); }
+    );
+}
+
+window.electronAPI.onDevicesChanged((event, devices) => renderDevices(devices));
+
 // --- RESET DEVICE LOGIC ---
 function resetDevice() {
     showCustomAlert(
@@ -233,6 +286,32 @@ document.getElementById('keyId').addEventListener('keydown', function(e) {
     if (keyName === "ESCAPE") keyName = "ESC";
     if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(keyName)) return;
     this.value = keyName; 
+});
+
+// --- BIND BY PRESSING THE MACROPAD KEY ---
+// The macropad is captured by the driver, so its keys never reach the DOM. The engine
+// forwards the next press instead, which also tells us which board it came from.
+const vkToName = Object.fromEntries(Object.entries(keyDictionary).map(([name, vk]) => [vk, name]));
+
+document.getElementById('keyId').addEventListener('focus', function () {
+    if (document.getElementById('key-manual-toggle').checked) return;
+    window.electronAPI.captureKey();
+    this.placeholder = "Press a key on your macropad...";
+});
+
+document.getElementById('keyId').addEventListener('blur', function () {
+    window.electronAPI.cancelCapture();
+    if (!document.getElementById('key-manual-toggle').checked) {
+        this.placeholder = "Click here, then press a key...";
+    }
+});
+
+window.electronAPI.onKeyCaptured((event, { keyId, hwid, deviceName }) => {
+    const input = document.getElementById('keyId');
+    input.dataset.keyid = keyId;
+    input.dataset.device = hwid;
+    input.value = vkToName[keyId] || ("ID:" + keyId);
+    showToast(`Bound to ${input.value} on ${deviceName}`);
 });
 
 document.getElementById('shortcut-input').addEventListener('keydown', function(e) {
@@ -352,6 +431,11 @@ function renderList(animatedKeyId = null) {
         
         let displayText = `<div style="display: flex; align-items: center; gap: 10px;">`;
         displayText += `<span style="font-weight: bold; color: #007acc; font-size: 0.9em; min-width: 75px;">KEY [${macro.visualKey}]</span>`;
+        // Only worth naming the board once more than one is paired
+        if (macro.device && pairedMacropads.length > 1) {
+            const dev = pairedMacropads.find(d => d.hwid === macro.device);
+            displayText += `<span style="font-size:0.72em; color:#aaa; background:#333; padding:2px 7px; border-radius:9px; white-space:nowrap;">${dev ? dev.name : 'unpaired device'}</span>`;
+        }
         if (macro.desc) {
             displayText += `<span>${macro.desc}</span>`;
         } else {
@@ -367,7 +451,8 @@ function renderList(animatedKeyId = null) {
                     data-visualvalue="${macro.visualValue}"
                     data-desc="${macro.desc || ""}"
                     data-iskeymanual="${macro.isKeyManual || false}"
-                    data-isshortcutmanual="${macro.isShortcutManual || false}">
+                    data-isshortcutmanual="${macro.isShortcutManual || false}"
+                    data-device="${macro.device || ""}">
                 ${displayText}
             </span>
             <div class="btn-group">
@@ -380,7 +465,10 @@ function renderList(animatedKeyId = null) {
 }
 
 function resetForm(delayButtonReset = false) {
-    document.getElementById('keyId').value = '';
+    const keyField = document.getElementById('keyId');
+    keyField.value = '';
+    delete keyField.dataset.keyid;
+    delete keyField.dataset.device;
     document.getElementById('shortcut-input').value = '';
     document.getElementById('path-input').value = '';
     document.getElementById('custom-input').value = '';
@@ -448,13 +536,19 @@ function addMacroToList() {
     let finalKeyId = "";
     let friendlyKeyName = "";
 
+    const keyInput = document.getElementById('keyId');
     if (isKeyManual) {
-        finalKeyId = rawKeyInput; 
-        friendlyKeyName = "ID:" + rawKeyInput; 
+        finalKeyId = rawKeyInput;
+        friendlyKeyName = "ID:" + rawKeyInput;
+    } else if (keyInput.dataset.keyid) {
+        // Captured straight off the macropad, so the code is already exact
+        finalKeyId = keyInput.dataset.keyid;
+        friendlyKeyName = rawKeyInput.toUpperCase();
     } else {
-        friendlyKeyName = rawKeyInput.toUpperCase(); 
+        friendlyKeyName = rawKeyInput.toUpperCase();
         finalKeyId = keyDictionary[friendlyKeyName] || friendlyKeyName;
     }
+    const boundDevice = isKeyManual ? '' : (keyInput.dataset.device || '');
 
     const actionType = document.getElementById('action-type').value;
     let actionValue = "";
@@ -486,13 +580,16 @@ function addMacroToList() {
         return;
     }
 
-    const newMacro = { 
-        keyId: finalKeyId, visualKey: friendlyKeyName, type: actionType, 
+    const newMacro = {
+        keyId: finalKeyId, visualKey: friendlyKeyName, type: actionType,
         value: actionValue, visualValue: visualActionValue, desc: description,
-        isKeyManual: isKeyManual, isShortcutManual: isShortcutManual
+        isKeyManual: isKeyManual, isShortcutManual: isShortcutManual,
+        device: boundDevice   // '' means any paired macropad
     };
-    
-    const existingIndex = appData.profiles[appData.activeProfile].findIndex(m => m.keyId == finalKeyId);
+
+    // Same key on a different macropad is a different macro, so match on both
+    const existingIndex = appData.profiles[appData.activeProfile]
+        .findIndex(m => m.keyId == finalKeyId && (m.device || '') === boundDevice);
 
     if (existingIndex !== -1 && editingKeyId != finalKeyId) {
         showCustomAlert("Overwrite Key?", `Key [${friendlyKeyName}] is already assigned. Do you want to overwrite it?`, "Overwrite", "#d4a373", () => saveMacroToMemory(newMacro, existingIndex, friendlyKeyName));
@@ -513,7 +610,11 @@ function editMacro(button) {
     document.getElementById('manual-toggle').checked = isShortcutManual;
     toggleManualMode();
 
-    document.getElementById('keyId').value = span.getAttribute('data-visualkey').replace("ID:", "");
+    const keyField = document.getElementById('keyId');
+    keyField.value = span.getAttribute('data-visualkey').replace("ID:", "");
+    keyField.dataset.keyid = span.getAttribute('data-keyid');
+    const boundTo = span.getAttribute('data-device') || '';
+    if (boundTo) keyField.dataset.device = boundTo; else delete keyField.dataset.device;
 
     // A legacy AHK macro (from an .mps exported before the engine swap) opens in the
     // JavaScript editor with its old code visible, so it can be rewritten in place.
@@ -548,6 +649,7 @@ function deleteMacro(button) {
     const li = button.parentElement.parentElement;
     const span = li.querySelector('span');
     const keyIdToRemove = span.getAttribute('data-keyid');
+    const deviceToRemove = span.getAttribute('data-device') || '';
     const visualKey = span.getAttribute('data-visualkey');
 
     showCustomAlert(
@@ -558,7 +660,9 @@ function deleteMacro(button) {
         () => {
             li.classList.add('removing');
             setTimeout(() => {
-                appData.profiles[appData.activeProfile] = appData.profiles[appData.activeProfile].filter(m => m.keyId != keyIdToRemove);
+                // The same key can exist on more than one macropad, so match the device too
+                appData.profiles[appData.activeProfile] = appData.profiles[appData.activeProfile]
+                    .filter(m => !(m.keyId == keyIdToRemove && (m.device || '') === deviceToRemove));
                 if (editingKeyId == keyIdToRemove) resetForm();
                 renderList();
             }, 300);
@@ -656,23 +760,30 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateProfileDropdown();
     renderList();
 
-    // 3. Auto-compile AHK if a startup profile was set
+    // 3. Re-save if a startup profile was set, so the overlay picks it up
     if (appData.settings.autoApply) {
         window.electronAPI.saveMacros(appData);
     }
 
     // --- THE AUTO-CONNECT LOGIC ---
     // If we have a valid 8-character ID saved, start the engine immediately!
-    if (appData.settings.hardwareId && appData.settings.hardwareId.length >= 8) {
+    // Devices live in settings.devices now; main migrates settings.hardwareId across on boot,
+    // so ask main rather than reading the copy the renderer loaded.
+    const devices = await window.electronAPI.listDevices();
+    renderDevices(devices);
+
+    if (devices.length) {
         window.electronAPI.startEngine();
 
         // Instantly flip the UI to the "Connected" state!
         const statusBar = document.getElementById('status-bar');
         const statusText = document.getElementById('status-text');
         const btn = document.getElementById('connectBtn');
-        
+
         statusBar.classList.add('connected');
-        statusText.innerText = "Status: Active & Listening";
+        statusText.innerText = devices.length > 1
+            ? `Status: Active - ${devices.length} macropads`
+            : "Status: Active & Listening";
         statusText.style.color = "#28a745";
         btn.style.display = "none"; // Hide the connect button
     }
