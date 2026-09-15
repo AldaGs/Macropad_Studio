@@ -8,8 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // We use 'invoke' instead of 'send' because we want to wait for an answer!
     loadMacros: () => ipcRenderer.invoke('load-macros'),
 
-    // Lane to manually start LuaMacros on click
-    startLuaMacros: () => ipcRenderer.send('start-luamacros'),
+    // Lane to manually start the macro engine on click
+    startEngine: () => ipcRenderer.send('start-engine'),
 
     // Channels for the custom close popup
     onShowCloseModal: (callback) => ipcRenderer.on('show-close-modal', callback),

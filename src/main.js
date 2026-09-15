@@ -159,7 +159,7 @@ function createWindow () {
 // --- THE MACRO ENGINE ---
 // Interception grabs the macropad below the OS keyboard stack, so nothing leaks to the
 // foreground app and no external LuaMacros/AutoHotkey process is needed to listen.
-function startBackgroundWorkers() {
+function startEngine() {
     const baseDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
 
     // Any legacy LuaMacros instance must go, or both engines fire on every press.
@@ -248,8 +248,8 @@ ipcMain.handle('load-macros', () => {
     return { activeProfile: "Default", profiles: { "Default": [] }, settings: { autoApply: false } };
 });
 
-ipcMain.on('start-luamacros', () => {
-    startBackgroundWorkers();
+ipcMain.on('start-engine', () => {
+    startEngine();
 });
 
 ipcMain.on('close-decision', (event, decision) => {
@@ -356,7 +356,7 @@ function handleExternalMpsFile(filePath) {
 
 ipcMain.on('reset-hardware-id', () => {
     // The saved ID actually lives in profiles.json's settings.hardwareId,
-    // which is what startBackgroundWorkers() reads to decide auto-connect vs. recording mode.
+    // which is what startEngine() reads to decide auto-connect vs. recording mode.
     const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
     if (fs.existsSync(jsonFilePath)) {
         try {
@@ -375,7 +375,7 @@ ipcMain.on('reset-hardware-id', () => {
     // becomes the new macropad. No restart needed, the worker keeps running.
     learningDevice = true;
     if (engine) engine.setTarget(null);
-    else startBackgroundWorkers();
+    else startEngine();
 });
 
 // --- APP LIFECYCLE ---
@@ -425,13 +425,7 @@ app.on('will-quit', () => {
     // the macropad stays swallowed until the driver notices the context is gone.
     if (engine) { engine.stop(); engine = null; }
 
-    // Kill any legacy LuaMacros instance left over from a previous version
-    exec(`taskkill /f /im LuaMacros.exe`, (err) => {
-        if (err) console.log("LuaMacros already closed or not found.");
-    });
-
-    // Kill the shortcut engine (AutoHotkey)
-    // We use the filename we standardized earlier
+    // Custom macros spawn AutoHotkey per press; clear any that are still hanging around.
     exec(`taskkill /f /im AutoHotkey64.exe`, (err) => {
         if (err) console.log("AutoHotkey already closed or not found.");
     });
