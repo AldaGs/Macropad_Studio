@@ -35,7 +35,7 @@
                     <option value="send">Press a Keyboard Shortcut</option>
                     <option value="run">Launch a Program</option>
                     <option value="clock">Show Time &amp; Date (Toast)</option>
-                    <option value="custom">Run Raw AHK Code</option>
+                    <option value="js">Run JavaScript</option>
                 </select>
             </div>
             
@@ -53,8 +53,14 @@
             </div>
 
             <div class="input-group" id="input-custom" style="display: none;">
-                <label>3. Paste your AHK v2 Code</label>
+                <label id="custom-label">3. Paste your AHK v2 Code</label>
                 <textarea id="custom-input" rows="4" placeholder="Paste your raw code here..." style="resize: vertical;"></textarea>
+                <small id="js-help" style="display: none; color: #888; line-height: 1.6;">
+                    Available: <code>send('^c')</code>, <code>type('text')</code>, <code>await sleep(ms)</code>,
+                    <code>run('app.exe')</code>, <code>notify('msg')</code>, <code>beep(freq, ms)</code>,
+                    <code>clipboard.read/write/clear</code>, <code>await clipWait(ms)</code>.
+                    Plus <code>fetch</code>, <code>Date</code> and the rest of Node.
+                </small>
             </div>
 
             <div class="input-group" id="input-clock" style="display: none;">
@@ -117,7 +123,12 @@
                             <button id="btn-reset-conn" onclick="resetDevice()" style="margin: 0;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> Reset Macropad Connection</button>
                             <p style="color: #888; font-size: 0.8em; margin: 5px 0 0 0;">Use this if you plug in a different physical keyboard.</p>
                         </div>
-                        
+
+                        <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #444;">
+                            <button id="btn-driver-setup" onclick="driverSetup()" style="margin: 0;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7h6m-3-3v6"/><rect x="2" y="4" width="8" height="16" rx="1"/><path d="M6 8v8"/></svg> Interception Driver</button>
+                            <p style="color: #888; font-size: 0.8em; margin: 5px 0 0 0;">Install, repair or remove the keyboard capture driver.</p>
+                        </div>
+
                         <div style="height: 15px;"></div>
                     </div>
                 </div>

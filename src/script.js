@@ -61,7 +61,7 @@ document.getElementById('custom-prompt-input').addEventListener('keypress', func
 
 function connectMacropad() {
     pulseButton('connectBtn');
-    window.electronAPI.startLuaMacros();
+    window.electronAPI.startEngine();
     
     // Set to Waiting State
     const statusText = document.getElementById('status-text');
@@ -137,15 +137,20 @@ function toggleSettings() {
     }
 }
 
+function driverSetup() {
+    pulseButton('btn-driver-setup');
+    window.electronAPI.driverSetup();
+}
+
 // --- RESET DEVICE LOGIC ---
 function resetDevice() {
     showCustomAlert(
         "Reset Device Connection?", 
-        "This will forget your currently paired Macropad. LuaMacros will ask you to press a key to pair a new device. Are you sure?", 
-        "Reset Connection", 
-        "#cc3300", 
+        "This will forget your currently paired Macropad. The next key you press on any keyboard will pair that device instead. Are you sure?",
+        "Reset Connection",
+        "#cc3300",
         () => {
-            // Tell the backend to delete the ID and restart LuaMacros
+            // Tell the backend to drop the saved id and go back to learning mode
             window.electronAPI.resetHardwareId();
             showToast("Device connection reset!");
             
@@ -174,15 +179,25 @@ function toggleActionInput() {
     const actionType = document.getElementById('action-type').value;
     if (actionType === 'send') document.getElementById('input-send').style.display = 'block';
     if (actionType === 'run') document.getElementById('input-run').style.display = 'block';
-    if (actionType === 'custom') document.getElementById('input-custom').style.display = 'block';
     if (actionType === 'clock') document.getElementById('input-clock').style.display = 'block';
+
+    // js and custom share the same textarea - only the label and hint differ
+    if (actionType === 'custom' || actionType === 'js') {
+        const isJs = actionType === 'js';
+        document.getElementById('input-custom').style.display = 'block';
+        document.getElementById('custom-label').innerText = isJs ? '3. Write your JavaScript' : '3. Paste your AHK v2 Code';
+        document.getElementById('custom-input').placeholder = isJs
+            ? "send('^c');\nawait sleep(100);\ntype('hello');"
+            : 'Paste your raw code here...';
+        document.getElementById('js-help').style.display = isJs ? 'block' : 'none';
+    }
 }
 
 function toggleKeyManualMode() {
     const input = document.getElementById('keyId');
     if (document.getElementById('key-manual-toggle').checked) {
         input.removeAttribute('readonly');
-        input.placeholder = "Type raw LuaMacros ID (e.g., 65)";
+        input.placeholder = "Type raw virtual-key code (e.g., 65)";
     } else {
         input.setAttribute('readonly', 'true');
         input.placeholder = "Click here, then press a key...";
@@ -455,6 +470,9 @@ function addMacroToList() {
     } else if (actionType === 'custom') {
         actionValue = document.getElementById('custom-input').value;
         visualActionValue = "Custom AHK Script";
+    } else if (actionType === 'js') {
+        actionValue = document.getElementById('custom-input').value;
+        visualActionValue = "JavaScript";
     } else if (actionType === 'clock') {
         const fmt = document.getElementById('clock-format');
         actionValue = fmt.value; // {datetime} | {time} | {date}
@@ -496,15 +514,20 @@ function editMacro(button) {
     toggleManualMode();
 
     document.getElementById('keyId').value = span.getAttribute('data-visualkey').replace("ID:", "");
-    document.getElementById('action-type').value = span.getAttribute('data-type');
+
+    // A legacy AHK macro (from an .mps exported before the engine swap) opens in the
+    // JavaScript editor with its old code visible, so it can be rewritten in place.
+    const rawType = span.getAttribute('data-type');
+    document.getElementById('action-type').value = rawType === 'custom' ? 'js' : rawType;
     toggleActionInput();
+    if (rawType === 'custom') showToast("This was an AutoHotkey macro - rewrite it as JavaScript.", true);
     
     if (span.getAttribute('data-type') === 'send') {
         document.getElementById('shortcut-input').value = span.getAttribute('data-visualvalue');
         if (!isShortcutManual) document.getElementById('shortcut-input').dataset.ahk = decodeURIComponent(span.getAttribute('data-value'));
     } else if (span.getAttribute('data-type') === 'run') {
         document.getElementById('path-input').value = decodeURIComponent(span.getAttribute('data-value'));
-    } else if (span.getAttribute('data-type') === 'custom') {
+    } else if (span.getAttribute('data-type') === 'custom' || span.getAttribute('data-type') === 'js') {
         document.getElementById('custom-input').value = decodeURIComponent(span.getAttribute('data-value'));
     } else if (span.getAttribute('data-type') === 'clock') {
         document.getElementById('clock-format').value = decodeURIComponent(span.getAttribute('data-value'));
@@ -641,7 +664,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // --- THE AUTO-CONNECT LOGIC ---
     // If we have a valid 8-character ID saved, start the engine immediately!
     if (appData.settings.hardwareId && appData.settings.hardwareId.length >= 8) {
-        window.electronAPI.startLuaMacros();
+        window.electronAPI.startEngine();
 
         // Instantly flip the UI to the "Connected" state!
         const statusBar = document.getElementById('status-bar');
@@ -667,7 +690,21 @@ window.electronAPI.onHardwareLocked(() => {
     btn.style.display = "none"; // Hide the connect button
     
     showToast("Hardware linked! Auto-connect enabled.");
-}); 
+});
+
+window.electronAPI.onHardwareLearning(() => {
+    // The engine is running but has no macropad linked yet - same waiting state the
+    // Connect button uses, so the UI never claims to be listening when it is not.
+    const statusBar = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+
+    statusBar.classList.remove('connected');
+    statusText.innerText = "Status: Waiting for keypress...";
+    statusText.style.color = "#d4a373";
+    document.getElementById('connectBtn').style.display = "none";
+
+    showToast("Press any key on your Macropad to link it!");
+});
 
 window.electronAPI.onLoadExternalProfile((event, importedMacros) => {
     window.focus(); 

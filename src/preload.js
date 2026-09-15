@@ -8,8 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // We use 'invoke' instead of 'send' because we want to wait for an answer!
     loadMacros: () => ipcRenderer.invoke('load-macros'),
 
-    // Lane to manually start LuaMacros on click
-    startLuaMacros: () => ipcRenderer.send('start-luamacros'),
+    // Lane to manually start the macro engine on click
+    startEngine: () => ipcRenderer.send('start-engine'),
 
     // Channels for the custom close popup
     onShowCloseModal: (callback) => ipcRenderer.on('show-close-modal', callback),
@@ -27,5 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onLoadExternalProfile: (callback) => ipcRenderer.on('load-external-profile', callback),
 
     resetHardwareId: () => ipcRenderer.send('reset-hardware-id'),
-    onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback)
+    driverSetup: () => ipcRenderer.send('driver-setup'),
+    onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback),
+
+    // Fired when the engine has no usable hardware id and is waiting for a keypress
+    onHardwareLearning: (callback) => ipcRenderer.on('hardware-learning', callback),
+
+    // Toast window: the OSD is an Electron window now, not a generated AHK Gui
+    onToast: (callback) => ipcRenderer.on('toast', callback)
 });
