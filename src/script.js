@@ -137,6 +137,11 @@ function toggleSettings() {
     }
 }
 
+function driverSetup() {
+    pulseButton('btn-driver-setup');
+    window.electronAPI.driverSetup();
+}
+
 // --- RESET DEVICE LOGIC ---
 function resetDevice() {
     showCustomAlert(

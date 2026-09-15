@@ -17,7 +17,12 @@ const STROKE_BYTES = 24;         // InterceptionStroke is a union sized to the m
 const HWID_BYTES = 1000;         // wchar_t[500]
 const MAPVK_VSC_TO_VK_EX = 3;
 
-const fail = (message) => { parentPort.postMessage({ type: 'error', message }); process.exit(1); };
+// setup:true means the driver is missing or unusable - recoverable by installing it,
+// as opposed to a genuine runtime fault.
+const fail = (message, setup = false) => {
+  parentPort.postMessage({ type: 'error', message, setup });
+  process.exit(1);
+};
 
 let lib, MapVirtualKeyW;
 try {
@@ -33,11 +38,11 @@ try {
   };
   MapVirtualKeyW = koffi.load('user32.dll').func('__stdcall', 'MapVirtualKeyW', 'uint32', ['uint32', 'uint32']);
 } catch (e) {
-  fail(`Could not load interception.dll: ${e.message}`);
+  fail('Could not load interception.dll: ' + e.message, true);
 }
 
 const ctx = lib.createContext();
-if (!ctx) fail('Interception driver not responding. Is it installed, and has the machine rebooted since?');
+if (!ctx) fail('Interception driver not responding. Is it installed, and has the machine rebooted since?', true);
 
 const isKeyboard = koffi.register(
   (device) => (device >= 1 && device <= 10 ? 1 : 0),

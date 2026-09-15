@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onLoadExternalProfile: (callback) => ipcRenderer.on('load-external-profile', callback),
 
     resetHardwareId: () => ipcRenderer.send('reset-hardware-id'),
+    driverSetup: () => ipcRenderer.send('driver-setup'),
     onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback),
 
     // Fired when the engine has no usable hardware id and is waiting for a keypress

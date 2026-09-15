@@ -140,7 +140,11 @@ class Engine extends EventEmitter {
   }
 
   onMessage(m) {
-    if (m.type === 'error') return this.emit('error', new Error(m.message));
+    if (m.type === 'error') {
+      const err = new Error(m.message);
+      err.setup = !!m.setup;   // driver missing, not a runtime fault
+      return this.emit('error', err);
+    }
     if (m.type === 'device') {
       this.devices.set(m.device, m.hwid);
       return this.emit('device', m);

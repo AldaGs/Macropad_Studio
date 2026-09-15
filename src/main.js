@@ -39,6 +39,90 @@ function writeProfiles(data) {
 // engine swap and the user has to press a key once to re-link their macropad.
 const isUsableHwid = (id) => typeof id === 'string' && id.toUpperCase().startsWith('HID\\');
 
+// --- DRIVER SETUP ---
+// Interception is a kernel filter driver: it needs an elevated install and a reboot before
+// Macropad Studio can capture anything. Silent installation from inside our own installer is
+// a commercial-licence feature of Interception, so this is a guided, consented flow instead.
+const installerPath = () => {
+    const baseDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
+    return path.join(baseDir, 'bin/Interception/install-interception.exe');
+};
+
+// Runs the driver installer elevated, then offers the reboot it requires either way.
+function runInstaller(flag) {
+    const installer = installerPath();
+    if (!fs.existsSync(installer)) {
+        dialog.showErrorBox('Macropad Studio', `Driver installer is missing:\n${installer}`);
+        return;
+    }
+
+    // The installer is manifested requireAdministrator, so CreateProcess refuses it outright.
+    // ShellExecute with RunAs is what raises the UAC prompt.
+    const ps = `Start-Process -FilePath '${installer.replace(/'/g, "''")}' -ArgumentList '${flag}' -Verb RunAs -Wait`;
+    exec(`powershell -NoProfile -Command "${ps}"`, (err) => {
+        if (err) {
+            // Most often the user dismissed the UAC prompt.
+            dialog.showMessageBoxSync(mainWindow, {
+                type: 'warning',
+                title: 'Macropad Studio',
+                message: 'Driver installation did not complete.',
+                detail: 'Administrator rights are required. You can try again from Settings.',
+            });
+            return;
+        }
+
+        const verb = flag === '/install' ? 'installed' : 'removed';
+        const restart = dialog.showMessageBoxSync(mainWindow, {
+            type: 'question',
+            title: 'Macropad Studio',
+            message: `Driver ${verb}. Windows needs to restart.`,
+            detail: `The change only takes effect after a reboot. Restart now?`,
+            buttons: ['Restart Now', 'Later'],
+            defaultId: 1,
+            cancelId: 1,
+        });
+        if (restart === 0) exec('shutdown /r /t 0');
+    });
+}
+
+// Opened from Settings, where the driver is usually already working.
+function showDriverManage() {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+        type: 'info',
+        title: 'Macropad Studio - Interception Driver',
+        message: 'Interception driver',
+        detail: 'This is the kernel driver that lets Macropad Studio capture one keyboard '
+            + 'without its keys reaching the rest of Windows.\n\nReinstall if capture has '
+            + 'stopped working. Removing it disables Macropad Studio until you install it again.\n\n'
+            + 'Both actions need administrator rights and a restart.',
+        buttons: ['Reinstall', 'Uninstall', 'Close'],
+        defaultId: 2,
+        cancelId: 2,
+    });
+    if (choice === 0) runInstaller('/install');
+    if (choice === 1) runInstaller('/uninstall');
+}
+
+function showDriverSetup(detail) {
+    const response = dialog.showMessageBoxSync(mainWindow, {
+        type: 'info',
+        title: 'Macropad Studio - Driver Setup',
+        message: 'Macropad Studio needs the Interception driver',
+        detail: 'It is what lets the app capture one keyboard without the keys reaching '
+            + 'the rest of Windows.\n\nInstalling asks for administrator rights and needs a '
+            + 'restart afterwards. You can uninstall it any time from Settings.\n\n' + detail,
+        buttons: ['Install Driver', 'What is this?', 'Not Now'],
+        defaultId: 0,
+        cancelId: 2,
+    });
+
+    if (response === 1) {
+        shell.openExternal('https://github.com/oblitum/Interception');
+        return;
+    }
+    if (response === 0) runInstaller('/install');
+}
+
 function showToast(text, color) {
     if (!toastWindow || toastWindow.isDestroyed()) return;
     toastWindow.showInactive();
@@ -214,14 +298,17 @@ function startEngine() {
 
     engine.on('error', (err) => {
         console.error('Engine error:', err.message);
-        if (mainWindow) {
-            dialog.showMessageBox(mainWindow, {
-                type: 'error',
-                title: 'Macropad Studio',
-                message: 'The macro engine could not start.',
-                detail: err.message + '\n\nThe Interception driver must be installed and the machine rebooted once.',
-            });
-        }
+        if (!mainWindow) return;
+
+        // A missing driver is a setup step with a way forward, not a dead end.
+        if (err.setup) return showDriverSetup(err.message);
+
+        dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: 'Macropad Studio',
+            message: 'The macro engine could not start.',
+            detail: err.message,
+        });
     });
 
     engine.start();
@@ -252,6 +339,8 @@ ipcMain.handle('load-macros', () => {
     }
     return { activeProfile: "Default", profiles: { "Default": [] }, settings: { autoApply: false } };
 });
+
+ipcMain.on('driver-setup', () => showDriverManage());
 
 ipcMain.on('start-engine', () => {
     startEngine();

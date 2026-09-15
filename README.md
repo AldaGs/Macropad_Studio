@@ -36,11 +36,16 @@ Capture runs through the [Interception](https://github.com/oblitum/Interception)
 
 ## Requirements
 
-The Interception driver must be installed once before Macropad Studio can capture a keyboard.
+Macropad Studio needs the [Interception](https://github.com/oblitum/Interception) kernel driver to capture a keyboard. **The driver is bundled — you do not need to download anything.**
 
-1. Download a release from [oblitum/Interception](https://github.com/oblitum/Interception/releases) and extract it.
-2. Open a terminal **as Administrator** and run `command line installer\install-interception.exe`.
-3. **Reboot.** Keyboards and mice may behave oddly until you do.
+On first run the app notices the driver is missing and offers to install it:
+
+1. Click **Install Driver**. Windows shows a UAC prompt for administrator rights.
+2. Click **Restart Now** when asked. The driver only takes effect after a reboot.
+
+That is it. You can reinstall or remove the driver later from **Settings → Interception Driver**. Removing it disables Macropad Studio until you install it again; other apps that use Interception will also be affected, since the driver is shared system-wide.
+
+> **Note:** installation is deliberately a visible, consented step rather than something the installer does silently in the background. Interception's licence reserves silent embedded installation for its commercial tier, and a kernel driver is not something to install behind a user's back regardless.
 
 ## Installation & Setup
 
@@ -92,7 +97,7 @@ Custom macros run as AutoHotkey v2. Anything you put in `%APPDATA%\macropad-stud
 
 ## Troubleshooting
 
-**"The macro engine could not start."** The Interception driver is not installed, or the machine has not rebooted since installing it. See [Requirements](#requirements).
+**The driver setup dialog keeps reappearing.** The driver is installed but the machine has not rebooted yet, or the install was cancelled at the UAC prompt. Reboot, or retry from **Settings → Interception Driver**.
 
 **Status says "Waiting for keypress…" after upgrading.** Versions before the engine swap stored an 8-character device fragment that the driver cannot match. Press any key on your macropad once to re-link it. Your macros are unaffected.
 
@@ -115,5 +120,9 @@ To inspect devices directly, `node spike-interception.js` prints the hardware ID
 * [ ] MIDI controllers as a macro source
 * [ ] Raw HID for custom QMK/ZMK builds
 * [ ] Port custom macros from AHK to JS and drop the AutoHotkey dependency
+
+## Third-party components
+
+[Interception](https://github.com/oblitum/Interception) by Francisco Lopes is bundled under its non-commercial LGPL-3.0 terms, which permit redistributing the driver and installer as long as the application talks to the driver only through the library API — which is what Macropad Studio does. The licence texts ship in `bin/Interception/licenses/`. **Commercial use of Macropad Studio would require a commercial Interception licence** (`francisco@oblita.com`).
 
 Built with passion by Aldair Gonzalez.
