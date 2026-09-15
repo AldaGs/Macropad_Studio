@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      -webkit-user-select: none;
+    }
+    #pill {
+      padding: 12px 25px;
+      border-radius: 15px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .12s ease, transform .12s ease;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    }
+    #pill.show { opacity: .85; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div id="pill"></div>
+  <script>
+    const pill = document.getElementById('pill');
+    let hideTimer = null;
+
+    window.electronAPI.onToast((_event, { text, color }) => {
+      pill.textContent = text;
+      pill.style.background = color;
+      // restart the animation even if a toast is already on screen
+      pill.classList.remove('show');
+      void pill.offsetWidth;
+      pill.classList.add('show');
+
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => pill.classList.remove('show'), 1000);
+    });
+  </script>
+</body>
+</html>

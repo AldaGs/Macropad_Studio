@@ -667,7 +667,21 @@ window.electronAPI.onHardwareLocked(() => {
     btn.style.display = "none"; // Hide the connect button
     
     showToast("Hardware linked! Auto-connect enabled.");
-}); 
+});
+
+window.electronAPI.onHardwareLearning(() => {
+    // The engine is running but has no macropad linked yet - same waiting state the
+    // Connect button uses, so the UI never claims to be listening when it is not.
+    const statusBar = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+
+    statusBar.classList.remove('connected');
+    statusText.innerText = "Status: Waiting for keypress...";
+    statusText.style.color = "#d4a373";
+    document.getElementById('connectBtn').style.display = "none";
+
+    showToast("Press any key on your Macropad to link it!");
+});
 
 window.electronAPI.onLoadExternalProfile((event, importedMacros) => {
     window.focus(); 

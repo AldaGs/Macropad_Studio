@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog, Notification } = require('electron'); 
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process'); 
+const { exec } = require('child_process');
+const { Engine } = require('./engine');
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -14,8 +15,35 @@ if (!gotTheLock) {
 // Global variables
 let mainWindow = null;
 let tray = null;
-let appIsQuitting = false; 
+let appIsQuitting = false;
 let overlayWindow = null;
+let toastWindow = null;
+let engine = null;
+let learningDevice = false; // true while waiting for the user to press a key on their macropad
+
+const profilesPath = () => path.join(app.getPath('userData'), 'profiles.json');
+
+function readProfiles() {
+    try {
+        if (fs.existsSync(profilesPath())) return JSON.parse(fs.readFileSync(profilesPath(), 'utf-8'));
+    } catch (e) { console.error("Could not read profiles.json", e); }
+    return { activeProfile: "Default", profiles: { "Default": [] }, settings: {} };
+}
+
+function writeProfiles(data) {
+    fs.writeFileSync(profilesPath(), JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// Interception reports a full Windows hardware id ("HID\VID_046D&..."). LuaMacros stored an
+// 8-character fragment, so anything not in the new shape means this profile predates the
+// engine swap and the user has to press a key once to re-link their macropad.
+const isUsableHwid = (id) => typeof id === 'string' && id.toUpperCase().startsWith('HID\\');
+
+function showToast(text, color) {
+    if (!toastWindow || toastWindow.isDestroyed()) return;
+    toastWindow.showInactive();
+    toastWindow.webContents.send('toast', { text, color });
+}
 
 // --- THE CUSTOM MENU ---
 const menuTemplate = [
@@ -102,289 +130,108 @@ function createWindow () {
 
   overlayWindow.loadFile(path.join(__dirname, 'overlay.html'));
   overlayWindow.setIgnoreMouseEvents(false, { forward: false });
+
+  // --- OSD toast. Replaces the AHK Gui that used to be generated into macros.ahk. ---
+  const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
+  toastWindow = new BrowserWindow({
+    width: 900,
+    height: 90,
+    x: Math.round((width - 900) / 2),
+    y: height - 120,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    focusable: false,
+    resizable: false,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  toastWindow.loadFile(path.join(__dirname, 'toast.html'));
+  toastWindow.setIgnoreMouseEvents(true, { forward: true });
 }
 
-// --- BACKGROUND WORKERS (The Autonomous Flow) ---
+// --- THE MACRO ENGINE ---
+// Interception grabs the macropad below the OS keyboard stack, so nothing leaks to the
+// foreground app and no external LuaMacros/AutoHotkey process is needed to listen.
 function startBackgroundWorkers() {
     const baseDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
-    const luaDir = path.join(baseDir, 'bin/LuaMacros');
-    const luaExe = path.join(luaDir, 'LuaMacros.exe');
 
-    const userDataPath = app.getPath('userData').replace(/\\/g, '/');
-    const pressedKeyFile = `${userDataPath}/pressed_key.txt`;
-    const dumpFile = path.join(app.getPath('userData'), 'devices_dump.txt');
+    // Any legacy LuaMacros instance must go, or both engines fire on every press.
+    exec('taskkill /f /im LuaMacros.exe', () => {});
 
-    // 1. Read the saved Hardware ID
-    const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
-    let savedId = "";
-    if (fs.existsSync(jsonFilePath)) {
-        try {
-            const data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
-            if (data.settings && data.settings.hardwareId) savedId = data.settings.hardwareId;
-        } catch (e) { console.error(e); }
-    }
-
-    let luaScript = `clear()\nlocal key_file_path = "${pressedKeyFile}"\n`;
-
-    // 2. The Logic Split
-    if (savedId && savedId !== "") {
-        // A. WE HAVE AN ID: Silent Auto-Boot using Lua's double brackets [[ ]] to ignore weird backslashes
-        luaScript += `lmc_device_set_name('MACROS', [[${savedId}]])\n`;
-        luaScript += `print("Auto-connected to saved Macropad!")\n`;
-    } else {
-        // B. NO ID: Inject the memory dump script
-        luaScript += `
-                    lmc_assign_keyboard('MACROS')
-
-                    lmc.minimizeToTray = true
-                    lmc_minimize() 
-
-                    local function dumpData(o)
-                        if type(o) == 'table' then
-                            local s = '{ '
-                            for k, v in pairs(o) do
-                                if type(k) ~= 'number' then k = '"'..k..'"' end
-                                s = s .. '['..k..'] = ' .. dumpData(v) .. ', '
-                            end
-                            return s .. '} '
-                        else
-                            return tostring(o)
-                        end
-                    end
-
-                    local file = io.open("${dumpFile.replace(/\\/g, '/')}", "w")
-                    if file then
-                        local devices = lmc_get_devices()
-                        for key, value in pairs(devices) do
-                            file:write(tostring(key) .. ": " .. dumpData(value) .. "\\n")
-                        end
-                        file:close()
-                    end
-                    `;
-                            
-        // Clean up any old dump files before starting
-        if (fs.existsSync(dumpFile)) fs.unlinkSync(dumpFile);
-
-        // Tell Node to watch the folder for the dump file!
-        const watcher = fs.watch(app.getPath('userData'), (eventType, filename) => {
-            if (filename === 'devices_dump.txt') {
-                
-                // Give Windows a tiny 100ms buffer to finish writing the text to the file
-                setTimeout(() => {
-                    try {
-                        const content = fs.readFileSync(dumpFile, 'utf-8');
-                        // 1. Find the exact line LuaMacros assigned to 'MACROS'
-                        const targetLine = content.split('\n').find(l => l.includes('["Name"] = MACROS'));
-                        
-                        if (targetLine) {
-                            // 2. Extract the full SystemId string
-                            const match = targetLine.match(/\["SystemId"\] = (.*?),/);
-                            if (match && match[1]) {
-                                let finalId = match[1].trim();
-                                
-                                // 3. Slice the string to extract ONLY the unique 8-character ID (e.g., 18B01A70)
-                                // Format: \\?\HID#VID_046D&PID_C534...#8&18B01A70&0&0000#{...}
-                                const hashParts = finalId.split('#');
-                                if (hashParts.length >= 3) {
-                                    const ampParts = hashParts[2].split('&');
-                                    if (ampParts.length >= 2) {
-                                        finalId = ampParts[1]; 
-                                    }
-                                }
-                                
-                                // 4. Save the clean ID to profiles.json instantly
-                                const currentData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
-                                if (!currentData.settings) currentData.settings = {};
-                                currentData.settings.hardwareId = finalId;
-                                fs.writeFileSync(jsonFilePath, JSON.stringify(currentData, null, 2), 'utf-8');
-                                
-                                // 5. Tell the UI the hardware is locked in!
-                                if (mainWindow) mainWindow.webContents.send('hardware-locked');
-                                watcher.close(); 
-                            }
-                        }
-                    } catch(e) {
-                        console.error("File read collision, ignoring...", e);
-                    } 
-                }, 100);
-            }
-        });
-    }
-
-    // 3. The Standard Key Listener
-    luaScript += `
-                lmc.minimizeToTray = true
-                lmc_minimize() 
-                lmc_set_handler('MACROS', function(button, direction)
-                    if (direction == 1) then return end
-                    local f = io.open(key_file_path, 'w')
-                    if f then
-                        f:write(button)
-                        f:close()
-                        lmc_send_keys('{F24}')
-                    end
-                end)
-                `;
-
-// Save start.lua to the universally writable AppData folder ---
-    const luaScriptPath = path.join(app.getPath('userData'), 'start.lua');
-    const safeLuaPath = luaScriptPath.replace(/\\/g, '/'); // Prevents escape-character bugs in PowerShell
-    
-    fs.writeFileSync(luaScriptPath, luaScript, 'utf-8');
-
-    exec(`taskkill /f /im LuaMacros.exe`, () => {
-        // --- THE FIX: Pass the absolute path of the new start.lua to LuaMacros ---
-        const psCommand = `powershell -WindowStyle Hidden -Command "Start-Process -FilePath '${luaExe}' -ArgumentList '\\"${safeLuaPath}\\"', '-r' -WorkingDirectory '${luaDir}' -WindowStyle Hidden"`;
-        exec(psCommand);
-
-        // THE MISSING UI SIGNAL ---
-        // If we booted silently using an existing ID, tell the frontend it worked!
-        if (savedId && savedId !== "") {
-            setTimeout(() => {
-                if (mainWindow) {
-                    mainWindow.webContents.send('hardware-locked');
-                }
-            }, 500); // 500ms buffer to ensure LuaMacros is fully launched
-        }
-    });
-}
-
-// --- Toast text builder: turns a description into an AHK expression, ---
-// --- swapping live placeholders for FormatTime() calls evaluated on each press. ---
-function buildToastArg(text) {
-    const tokens = {
-        '{time}': 'FormatTime(, "hh:mm:ss tt")',
-        '{date}': 'FormatTime(, "dddd, MMMM d, yyyy")',
-        '{datetime}': 'FormatTime(, "dddd, MMMM d, yyyy  hh:mm:ss tt")'
-    };
-    // Split on the placeholders while keeping them, then stitch back as an AHK expression
-    const parts = String(text).split(/(\{datetime\}|\{time\}|\{date\})/g).filter(p => p !== '');
-    const pieces = parts.map(p => {
-        if (tokens[p]) return tokens[p];
-        return '"' + p.replace(/"/g, '""') + '"'; // literal text -> quoted, quotes escaped
-    });
-    return pieces.length ? pieces.join(' . ') : '""';
-}
-
-// --- IPC LISTENERS (Brain <-> UI Communication) ---
-ipcMain.on('save-macros', (event, data) => {
-    const jsonFilePath = path.join(app.getPath('userData'), 'profiles.json');
-    fs.writeFileSync(jsonFilePath, JSON.stringify(data, null, 2), 'utf-8');
-
-    const userDataPath = app.getPath('userData').replace(/\\/g, '/'); 
-    
+    // The user's permanent AHK helpers, still included by every custom macro.
     const customFilePath = path.join(app.getPath('userData'), 'user_custom.ahk');
     if (!fs.existsSync(customFilePath)) {
         fs.writeFileSync(customFilePath, `; Put your permanent custom AHK v2 code here!\n; This file will NEVER be overwritten by Macropad Studio.\n`, 'utf-8');
     }
 
-    let ahkCode = `#Requires AutoHotkey v2.0\n#SingleInstance Force\n\n`;
-    ahkCode += `#Include "${customFilePath.replace(/\\/g, '/')}"\n\n`;
+    if (engine) engine.stop();
 
-    // Resolve the active profile up front so we can detect clock macros before building the engine
-    const activeProfile = data.activeProfile;
-    const macros = data.profiles[activeProfile] || [];
-    const osdOn = !!(data.settings && data.settings.showOSD);
-    const hasClock = macros.some(m => m.type === 'clock');
+    engine = new Engine({
+        dllPath: path.join(baseDir, 'bin/Interception/interception.dll'),
+        ahkExe: path.join(baseDir, 'bin/AutoHotkey/AutoHotkey64.exe'),
+        userDataPath: app.getPath('userData'),
+        getState: readProfiles,
+        showToast,
+    });
 
-    // Toast background color (user setting). AHK wants a bare 6-hex value, no leading '#'.
-    let toastColor = (data.settings && data.settings.toastColor) || '#28a745';
-    toastColor = toastColor.replace(/[^0-9a-fA-F]/g, '').slice(0, 6).padEnd(6, '0');
+    const saved = readProfiles().settings && readProfiles().settings.hardwareId;
+    learningDevice = !isUsableHwid(saved);
 
-    // --- Inject the OSD Graphics Engine if the setting is ON, or a clock macro needs it ---
-    if (osdOn || hasClock) {
-        ahkCode += `
-        ; --- OSD Notification Engine ---
-        global ToastGui := ""
+    engine.on('key', (k) => {
+        if (!learningDevice) return;
+        // First key pressed while learning wins - same contract LuaMacros had.
+        const hwid = engine.devices.get(k.device);
+        if (!hwid) return;
+        learningDevice = false;
 
-        ShowToast(msg) {
-            global ToastGui
-            
-            ; 1. If a notification is already on screen, destroy it so they don't overlap
-            if (ToastGui) {
-                ToastGui.Destroy()
-            }
+        const data = readProfiles();
+        if (!data.settings) data.settings = {};
+        data.settings.hardwareId = hwid;
+        writeProfiles(data);
+        engine.setTarget(hwid);
 
-            ; 2. Build a brand new window
-            ToastGui := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x20")
-            ToastGui.BackColor := "${toastColor}"
-            ToastGui.SetFont("s16 cWhite bold", "Segoe UI")
-            ToastGui.MarginX := 25
-            ToastGui.MarginY := 12
+        if (mainWindow) mainWindow.webContents.send('hardware-locked');
+    });
 
-            ; 3. Add the text DURING creation so AHK calculates the exact width immediately!
-            ToastGui.Add("Text", "Center", msg) 
-            WinSetTransparent(200, ToastGui)
+    engine.on('warning', ({ macro, unknown }) => {
+        console.warn(`Macro [${macro.visualKey}] has unsupported send tokens: ${unknown.join(', ')}`);
+    });
 
-            ; 4. Measure the newly minted window
-            ToastGui.Show("Hide")
-            ToastGui.GetPos(&X, &Y, &W, &H)
-            
-            ; 5. Carve the rounded corners
-            WinSetRegion("0-0 w" W " h" H " r15-15", ToastGui.Hwnd)
-            
-            ; 6. Center it and show it
-            CenterX := (A_ScreenWidth / 2) - (W / 2)
-            ToastGui.Show("NoActivate y" (A_ScreenHeight - 120) " x" CenterX)
-            
-            SetTimer(HideToast, -1000)
+    engine.on('error', (err) => {
+        console.error('Engine error:', err.message);
+        if (mainWindow) {
+            dialog.showMessageBox(mainWindow, {
+                type: 'error',
+                title: 'Macropad Studio',
+                message: 'The macro engine could not start.',
+                detail: err.message + '\n\nThe Interception driver must be installed and the machine rebooted once.',
+            });
         }
+    });
 
-        HideToast() {
-            global ToastGui
-            if (ToastGui) {
-                ToastGui.Destroy()
-                ToastGui := ""
-            }
-        }
-        \n`;
+    engine.start();
+
+    if (mainWindow) {
+        // A profile saved by the LuaMacros build has an 8-character id that means nothing to
+        // Interception, so say "press a key" rather than letting the UI claim it is connected.
+        mainWindow.webContents.send(learningDevice ? 'hardware-learning' : 'hardware-locked');
     }
+}
 
-    ahkCode += `~F24::\n{\n`;
-    ahkCode += `    SavedKey := FileRead("${userDataPath}/pressed_key.txt")\n\n`;
+// --- IPC LISTENERS (Brain <-> UI Communication) ---
+// Saving is now just persistence. The engine reads profiles.json on every press, so there
+// is no script to regenerate and no process to restart.
+ipcMain.on('save-macros', (event, data) => {
+    writeProfiles(data);
 
-    // Loop through the active profile
-    macros.forEach(macro => {
-        ahkCode += `    if (SavedKey == "${macro.keyId}") {\n`;
-
-        if (macro.type === 'clock') {
-            // Clock macros ARE the toast — always show it, using the chosen placeholder
-            // (or a custom description that may itself contain {time}/{date}/{datetime}).
-            const clockText = macro.desc ? macro.desc : macro.value; // value is "{datetime}" etc.
-            ahkCode += `        ShowToast(${buildToastArg(clockText)})\n`;
-        } else {
-            // --- Trigger the OSD before executing the action (when the setting is ON) ---
-            if (osdOn) {
-                // Use the custom description if they wrote one, otherwise use the visual value
-                let descriptor = macro.desc ? macro.desc : macro.visualValue;
-                // Supports live placeholders like {time}, {date}, {datetime}
-                ahkCode += `        ShowToast(${buildToastArg(descriptor)})\n`;
-            }
-
-            // Add the actual action
-            if (macro.type === 'send') {
-                ahkCode += `        Send("${macro.value}")\n`;
-            } else if (macro.type === 'run') {
-                ahkCode += `        Run("${macro.value}")\n`;
-            } else if (macro.type === 'custom') {
-                const indentedCustom = macro.value.split('\n').map(line => `        ${line}`).join('\n');
-                ahkCode += `${indentedCustom}\n`;
-            }
-        }
-        ahkCode += `    }\n`;
-    });
-
-    ahkCode += `}\n`;
-
-    const baseDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
-    const ahkFilePath = path.join(app.getPath('userData'), 'macros.ahk');
-    fs.writeFileSync(ahkFilePath, ahkCode, 'utf-8');
-    
-    const ahkExe = path.join(baseDir, 'bin/AutoHotkey/AutoHotkey64.exe');
-    exec(`"${ahkExe}" "${ahkFilePath}"`, (err) => {
-        if (err) console.error("AHK Error:", err);
-    });
-
+    const macros = (data.profiles && data.profiles[data.activeProfile]) || [];
     if (overlayWindow) {
         overlayWindow.webContents.send('update-overlay', macros);
     }
@@ -521,9 +368,11 @@ ipcMain.on('reset-hardware-id', () => {
         fs.unlinkSync(hardwareIdFile); // legacy file, clear it too just in case
     }
 
-    // Restart LuaMacros with no saved ID, so it opens the recording flow
-    // and lets the user pick/record a different keyboard.
-    startBackgroundWorkers();
+    // Drop the target and go back to learning mode: the next key pressed on any keyboard
+    // becomes the new macropad. No restart needed, the worker keeps running.
+    learningDevice = true;
+    if (engine) engine.setTarget(null);
+    else startBackgroundWorkers();
 });
 
 // --- APP LIFECYCLE ---
@@ -568,8 +417,12 @@ app.whenReady().then(() => {
 // --- FINAL CLEANUP ---
 app.on('will-quit', () => {
     console.log("Cleaning up all background processes...");
-    
-    // Kill the key listener (LuaMacros)
+
+    // Release the captured keyboard first - if the worker dies holding the filter,
+    // the macropad stays swallowed until the driver notices the context is gone.
+    if (engine) { engine.stop(); engine = null; }
+
+    // Kill any legacy LuaMacros instance left over from a previous version
     exec(`taskkill /f /im LuaMacros.exe`, (err) => {
         if (err) console.log("LuaMacros already closed or not found.");
     });

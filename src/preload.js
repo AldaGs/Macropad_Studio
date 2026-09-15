@@ -27,5 +27,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onLoadExternalProfile: (callback) => ipcRenderer.on('load-external-profile', callback),
 
     resetHardwareId: () => ipcRenderer.send('reset-hardware-id'),
-    onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback)
+    onHardwareLocked: (callback) => ipcRenderer.on('hardware-locked', callback),
+
+    // Fired when the engine has no usable hardware id and is waiting for a keypress
+    onHardwareLearning: (callback) => ipcRenderer.on('hardware-learning', callback),
+
+    // Toast window: the OSD is an Electron window now, not a generated AHK Gui
+    onToast: (callback) => ipcRenderer.on('toast', callback)
 });
