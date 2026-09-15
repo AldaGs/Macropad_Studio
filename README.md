@@ -123,12 +123,20 @@ node src/engine.js --self-test         SendInput encoding and toast text
 
 To inspect devices directly, `node spike-interception.js` prints the hardware ID and key codes of every keyboard without blocking anything. Pass a device number to capture that one.
 
-## Future Roadmap
+## Roadmap
 
-* [x] Support more than one keyboard at a time
-* [x] Drop the AutoHotkey dependency
-* [ ] MIDI controllers as a macro source
-* [ ] Raw HID for custom QMK/ZMK builds
+**Done**
+
+* [x] Drop the LuaMacros and AutoHotkey dependencies — capture and execution are both in-process
+* [x] JavaScript macros
+
+**Planned**
+
+* [ ] **Multiple macropads at once.** The driver already reports up to 10 keyboards independently and the capture loop sees all of them; only one is currently bound. This is next.
+* [ ] **MIDI controllers as a macro source.** Electron ships the Web MIDI API, so this needs no new dependency — just hardware to test against.
+* [ ] **Raw HID for custom QMK/ZMK builds.** A board with `RAW_ENABLE` can send macro events directly on usage page `0xFF60`, with no interception needed at all.
+
+The last two are designed but not built — neither has been tested against real hardware yet.
 
 ## Third-party components
 
