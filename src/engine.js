@@ -82,9 +82,9 @@ const expandPlaceholders = (text, now = new Date()) => {
 
 // --- Engine -------------------------------------------------------------------
 class Engine extends EventEmitter {
-  constructor({ dllPath, ahkExe, userDataPath, getState, showToast }) {
+  constructor({ dllPath, ahkExe, userDataPath, getState, showToast, openPath }) {
     super();
-    Object.assign(this, { dllPath, ahkExe, userDataPath, getState, showToast });
+    Object.assign(this, { dllPath, ahkExe, userDataPath, getState, showToast, openPath });
     this.worker = null;
     this.devices = new Map();
   }
@@ -142,7 +142,13 @@ class Engine extends EventEmitter {
         const unknown = sendKeys(macro.value);
         if (unknown.length) this.emit('warning', { macro, unknown });
       } else if (macro.type === 'run') {
-        spawn(macro.value, { shell: true, detached: true, stdio: 'ignore' }).unref();
+        // No shell: cmd.exe splits an unquoted path at its first space, which breaks every
+        // "C:\Program Files\..." macro. CreateProcess keeps the path intact and still
+        // searches PATH for bare names like calc.exe.
+        const child = spawn(macro.value, { detached: true, stdio: 'ignore' });
+        // Folders, documents, URLs and .bat files are not executables - let the shell open those.
+        child.on('error', () => this.openPath && this.openPath(macro.value));
+        child.unref();
       } else if (macro.type === 'custom') {
         this.runAhk(macro.value);
       }
@@ -189,6 +195,16 @@ function selfTest() {
   console.assert(expandPlaceholders('at {time}', d).startsWith('at 02:30:05'), 'time placeholder');
   console.assert(expandPlaceholders('{date}', d) === 'Tuesday, September 15, 2026', 'date placeholder');
   console.assert(expandPlaceholders('none', d) === 'none', 'text without placeholders is untouched');
+
+  // Regression: run macros must not go through a shell. Under shell:true cmd.exe splits an
+  // unquoted path at its first space and spawn reports no error at all, so this stays silent.
+  const probe = spawn('C:\\Program Files\\__mps_nonexistent__\\x.exe', { stdio: 'ignore' });
+  probe.on('error', (e) => {
+    console.assert(e.code === 'ENOENT', 'spaced path should reach CreateProcess intact, got ' + e.code);
+    console.log('run-path regression check ok');
+  });
+  probe.on('spawn', () => console.assert(false, 'spaced path unexpectedly spawned - is shell:true back?'));
+
   console.log('self-test ok');
 }
 

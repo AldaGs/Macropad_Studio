@@ -179,6 +179,9 @@ function startBackgroundWorkers() {
         userDataPath: app.getPath('userData'),
         getState: readProfiles,
         showToast,
+        openPath: (target) => shell.openPath(target).then((err) => {
+            if (err) console.error(`Could not open "${target}": ${err}`);
+        }),
     });
 
     const saved = readProfiles().settings && readProfiles().settings.hardwareId;
