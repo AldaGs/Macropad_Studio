@@ -143,7 +143,10 @@
         .arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
         .numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
 
-        /* A layout is just which blocks of the full keyboard this device actually has. */
+        /* A layout is just which blocks of the full keyboard this device actually has.
+           These live in CSS rather than inline on the element: an inline display beats a
+           stylesheet rule, so the hide below would never win. */
+        .block-nav { display: flex; flex-direction: column; justify-content: space-between; }
         .layout-numpad .block-main, .layout-numpad .block-nav { display: none; }
         .layout-tkl .block-numpad { display: none; }
 
@@ -219,7 +222,7 @@
             </div>
         </div>
 
-        <div class="block-nav" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="block-nav">
             <div class="nav-cluster">
                 <div class="key-row"><div class="key" data-id="45">INS</div><div class="key" data-id="36">HOME</div><div class="key" data-id="33">PGUP</div></div>
                 <div class="key-row"><div class="key" data-id="46">DEL</div><div class="key" data-id="35">END</div><div class="key" data-id="34">PGDN</div></div>

@@ -66,6 +66,33 @@ function pushOverlay(data) {
     });
 }
 
+// Asks whether macros written before a second macropad existed should be pinned to the
+// original board. Mutates data in place; the caller writes it.
+function claimUnboundMacros(data, firstDevice) {
+    if (!firstDevice) return;
+    const unbound = [];
+    for (const list of Object.values(data.profiles || {})) {
+        for (const m of list) if (!m.device) unbound.push(m);
+    }
+    if (!unbound.length) return;
+
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+        type: 'question',
+        title: 'Macropad Studio',
+        message: `Assign your existing macros to "${firstDevice.name}"?`,
+        detail: `${unbound.length} macro${unbound.length === 1 ? '' : 's'} `
+            + `${unbound.length === 1 ? 'is' : 'are'} not tied to a particular macropad, so `
+            + `${unbound.length === 1 ? 'it' : 'they'} will now fire on the new one as well.\n\n`
+            + `Assign ${unbound.length === 1 ? 'it' : 'them'} to "${firstDevice.name}" to keep `
+            + `the two boards separate. You can change any of them later by rebinding the key.`,
+        buttons: [`Assign to ${firstDevice.name}`, 'Leave on all macropads'],
+        defaultId: 0,
+        cancelId: 1,
+    });
+
+    if (choice === 0) unbound.forEach((m) => { m.device = firstDevice.hwid; });
+}
+
 // Adds a macropad to the paired list and starts capturing it immediately.
 function pairDevice(hwid) {
     const data = readProfiles();
@@ -75,11 +102,18 @@ function pairDevice(hwid) {
         return;
     }
 
+    const isFirst = data.settings.devices.length === 0;
     data.settings.devices.push({
         hwid,
         name: `Macropad ${data.settings.devices.length + 1}`,
         layout: 'full',
     });
+
+    // A macro with no device fires on every paired macropad. That is the right default with
+    // one board, but the moment a second arrives those macros start firing on it too. Offer
+    // to pin them to the board they were written for.
+    if (!isFirst) claimUnboundMacros(data, data.settings.devices[0]);
+
     writeProfiles(data);
 
     learningDevice = false;
@@ -452,7 +486,11 @@ ipcMain.on('toggle-overlay', () => {
         overlayWindow.hide();
     } else {
         pushOverlay();   // it may never have been sent anything this session
+        // The alwaysOnTop set at creation gets lost behind other top-most windows, and
+        // showInactive shows without raising. Re-assert a level above them on every show.
+        overlayWindow.setAlwaysOnTop(true, 'screen-saver');
         overlayWindow.showInactive();
+        overlayWindow.moveTop();
     }
 });
 
