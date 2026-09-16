@@ -143,6 +143,23 @@
         .arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
         .numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
 
+        /* A layout is just which blocks of the full keyboard this device actually has. */
+        .layout-numpad .block-main, .layout-numpad .block-nav { display: none; }
+        .layout-tkl .block-numpad { display: none; }
+
+        #device-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+        #device-tabs:empty { display: none; }
+        .device-tab {
+            padding: 4px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--key-border);
+            background: rgba(255, 255, 255, 0.04);
+            color: #bbb;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .device-tab.selected { background: #007acc; border-color: #007acc; color: #fff; }
+
         body.closing { animation: popOut 0.2s cubic-bezier(0.70, 0.00, 0.80, 0.40) forwards; }
         @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         @keyframes popOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.9); } }
@@ -159,8 +176,10 @@
             <button class="close-btn" title="Close Overlay" onclick="animateAndClose()">X</button>
         </div>
 
-        <div class="keyboard-container">
-        <div class="main-block">
+        <div id="device-tabs"></div>
+
+        <div class="keyboard-container layout-full" id="keyboard">
+        <div class="main-block block-main">
             <div class="key-row" style="margin-bottom: 15px;">
                 <div class="key" data-id="27" style="margin-right: 20px;">ESC</div>
                 
@@ -197,7 +216,7 @@
             </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="block-nav" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div class="nav-cluster">
                 <div class="key-row"><div class="key" data-id="45">INS</div><div class="key" data-id="36">HOME</div><div class="key" data-id="33">PGUP</div></div>
                 <div class="key-row"><div class="key" data-id="46">DEL</div><div class="key" data-id="35">END</div><div class="key" data-id="34">PGDN</div></div>
@@ -208,7 +227,7 @@
             </div>
         </div>
 
-        <div class="numpad-cluster">
+        <div class="numpad-cluster block-numpad">
             <div class="key" data-id="144">NUM</div><div class="key" data-id="111">/</div><div class="key" data-id="106">*</div><div class="key" data-id="109">-</div>
             <div class="key" data-id="103">7</div><div class="key" data-id="104">8</div><div class="key" data-id="105">9</div><div class="key h-2" style="grid-row: span 2;" data-id="107">+</div>
             <div class="key" data-id="100">4</div><div class="key" data-id="101">5</div><div class="key" data-id="102">6</div>
@@ -232,42 +251,72 @@
                 document.body.classList.remove('closing');
             }, 250); 
         }
-        // Listen for the active macro list from Node.js
-        window.electronAPI.onUpdateOverlay((event, activeMacros) => {
-            
-            // 1. Wipe the keyboard clean and set everything to "Free"
-            const allKeys = document.querySelectorAll('.key');
-            allKeys.forEach(key => {
+        let macros = [];
+        let devices = [];
+        let selected = 0;   // index into devices
+
+        function draw() {
+            const device = devices[selected];
+
+            // Only the blocks this macropad physically has
+            const keyboard = document.getElementById('keyboard');
+            keyboard.className = 'keyboard-container layout-' + ((device && device.layout) || 'full');
+
+            // Tabs only earn their space once there is more than one macropad
+            const tabs = document.getElementById('device-tabs');
+            tabs.innerHTML = devices.length > 1
+                ? devices.map((d, i) =>
+                    `<div class="device-tab${i === selected ? ' selected' : ''}" data-index="${i}">${d.name}</div>`).join('')
+                : '';
+
+            // Reset every key, creating its tooltip the first time round
+            document.querySelectorAll('.key').forEach(key => {
                 key.classList.remove('active');
-                
-                // Check if the key already has a tooltip span. If not, create one!
                 let tooltip = key.querySelector('.tooltip');
                 if (!tooltip) {
                     tooltip = document.createElement('span');
                     tooltip.className = 'tooltip';
                     key.appendChild(tooltip);
                 }
-                
-                // Set the default state for every key
                 tooltip.innerText = "Free";
             });
 
-            // 2. Light up the used keys and overwrite their tooltips!
-            activeMacros.forEach(macro => {
-                // Find the physical HTML key by matching the data-id
-                const physicalKey = document.querySelector(`.key[data-id="${macro.keyId}"]`);
-                
-                if (physicalKey) {
-                    physicalKey.classList.add('active');
-                    
-                    const tooltip = physicalKey.querySelector('.tooltip');
-                    if (tooltip) {
-                        // Priority 1: Custom Description (macro.desc)
-                        // Priority 2: The full shortcut/path (macro.visualValue)
-                        tooltip.innerText = macro.desc ? macro.desc : macro.visualValue;
-                    }
-                }
-            });
+            // Same precedence the engine uses: a macro bound to this macropad beats one
+            // left on "any device", so the overlay shows what would actually fire.
+            const hwid = device ? device.hwid : null;
+            const shown = new Map();
+            for (const m of macros) {
+                if (m.device && m.device !== hwid) continue;
+                const existing = shown.get(String(m.keyId));
+                if (existing && existing.device && !m.device) continue;
+                shown.set(String(m.keyId), m);
+            }
+
+            // querySelectorAll, not querySelector: data-id 13 is both main Enter and numpad
+            // ENT, and 16/17/18 are the left and right modifier pairs. Only lighting the
+            // first match left the numpad key dark whenever it was mapped.
+            for (const [keyId, macro] of shown) {
+                document.querySelectorAll(`.key[data-id="${keyId}"]`).forEach(key => {
+                    key.classList.add('active');
+                    const tooltip = key.querySelector('.tooltip');
+                    if (tooltip) tooltip.innerText = macro.desc ? macro.desc : macro.visualValue;
+                });
+            }
+        }
+
+        document.getElementById('device-tabs').addEventListener('click', (e) => {
+            const tab = e.target.closest('.device-tab');
+            if (!tab) return;
+            selected = Number(tab.dataset.index);
+            draw();
+        });
+
+        window.electronAPI.onUpdateOverlay((event, payload) => {
+            // Older callers sent a bare macro array
+            macros = Array.isArray(payload) ? payload : (payload.macros || []);
+            devices = Array.isArray(payload) ? [] : (payload.devices || []);
+            if (selected >= devices.length) selected = 0;
+            draw();
         });
     </script>
 </body>

@@ -55,6 +55,17 @@ function migrateDevices(data) {
 
 const pairedDevices = () => (readProfiles().settings || {}).devices || [];
 
+// The overlay draws one macropad at a time, so it needs the device list as well as
+// the macros - the layout and the tab names come from it.
+function pushOverlay(data) {
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
+    const state = data || readProfiles();
+    overlayWindow.webContents.send('update-overlay', {
+        macros: (state.profiles && state.profiles[state.activeProfile]) || [],
+        devices: (state.settings && state.settings.devices) || [],
+    });
+}
+
 // Adds a macropad to the paired list and starts capturing it immediately.
 function pairDevice(hwid) {
     const data = readProfiles();
@@ -77,6 +88,7 @@ function pairDevice(hwid) {
         mainWindow.webContents.send('hardware-locked');
         mainWindow.webContents.send('devices-changed', data.settings.devices);
     }
+    pushOverlay(data);
 }
 
 // --- DRIVER SETUP ---
@@ -358,11 +370,7 @@ ipcMain.on('save-macros', (event, data) => {
     delete data.settings.hardwareId;
 
     writeProfiles(data);
-
-    const macros = (data.profiles && data.profiles[data.activeProfile]) || [];
-    if (overlayWindow) {
-        overlayWindow.webContents.send('update-overlay', macros);
-    }
+    pushOverlay(data);
 });
 
 ipcMain.handle('load-macros', () => {
@@ -393,6 +401,7 @@ ipcMain.on('update-device', (event, { hwid, name, layout }) => {
     if (layout !== undefined) dev.layout = layout;
     writeProfiles(data);
     if (mainWindow) mainWindow.webContents.send('devices-changed', data.settings.devices);
+    pushOverlay(data);
 });
 
 ipcMain.on('remove-device', (event, hwid) => {
@@ -402,6 +411,7 @@ ipcMain.on('remove-device', (event, hwid) => {
     writeProfiles(data);
     if (engine) engine.syncTargets();
     if (mainWindow) mainWindow.webContents.send('devices-changed', data.settings.devices);
+    pushOverlay(data);
 });
 
 // The editor asks for the next key pressed on a macropad, so a binding is made by
@@ -441,7 +451,8 @@ ipcMain.on('toggle-overlay', () => {
     if (overlayWindow.isVisible()) {
         overlayWindow.hide();
     } else {
-        overlayWindow.showInactive(); 
+        pushOverlay();   // it may never have been sent anything this session
+        overlayWindow.showInactive();
     }
 });
 
@@ -536,6 +547,7 @@ ipcMain.on('reset-hardware-id', () => {
     data.settings.devices = [];
     writeProfiles(data);
     if (mainWindow) mainWindow.webContents.send('devices-changed', []);
+    pushOverlay(data);
 
     // Forget every paired macropad and go back to pairing mode: the next key pressed on
     // any keyboard becomes the first device again.
