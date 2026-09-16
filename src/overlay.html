@@ -150,6 +150,9 @@
         #device-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
         #device-tabs:empty { display: none; }
         .device-tab {
+            /* .glass-panel is a drag region, so anything clickable has to opt out
+               or the click just moves the window - same as .close-btn and .key. */
+            -webkit-app-region: no-drag;
             padding: 4px 14px;
             border-radius: 8px;
             border: 1px solid var(--key-border);
