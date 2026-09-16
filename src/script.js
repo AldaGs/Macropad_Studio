@@ -158,20 +158,46 @@ function renderDevices(devices) {
         return;
     }
 
+    // Hardware ids and user-typed names both go into markup here, so escape them.
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     host.innerHTML = devices.map((d) => {
         const opts = Object.entries(LAYOUTS)
             .map(([v, label]) => `<option value="${v}"${d.layout === v ? ' selected' : ''}>${label}</option>`)
             .join('');
-        const id = encodeURIComponent(d.hwid);
-        return `<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
-            <input type="text" value="${d.name}" style="flex:1; margin:0;"
-                   onchange="renameDevice('${id}', this.value)">
-            <select style="width:auto; margin:0;" onchange="relayoutDevice('${id}', this.value)">${opts}</select>
-            <button onclick="forgetDevice('${id}')" title="Forget this macropad"
+        return `<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;"
+                     data-hwid="${esc(d.hwid)}">
+            <input type="text" data-act="rename" value="${esc(d.name)}" style="flex:1; margin:0;">
+            <select data-act="layout" style="width:auto; margin:0;">${opts}</select>
+            <button data-act="forget" title="Forget this macropad"
                     style="margin:0; background:#cc3300;">✕</button>
         </div>
-        <p style="color:#666; font-size:0.72em; margin:0 0 10px 0; word-break:break-all;">${d.hwid}</p>`;
+        <p style="color:#666; font-size:0.72em; margin:0 0 10px 0; word-break:break-all;">${esc(d.hwid)}</p>`;
     }).join('');
+}
+
+// Delegated, not inline onclick: script.js is a classic script, so only function
+// declarations land on window and an inline handler calling anything else silently throws.
+function deviceRowAction(e) {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const hwid = el.closest('[data-hwid]').dataset.hwid;
+
+    if (el.dataset.act === 'rename') window.electronAPI.updateDevice({ hwid, name: el.value });
+    if (el.dataset.act === 'layout') {
+        window.electronAPI.updateDevice({ hwid, layout: el.value });
+        showToast(`Overlay set to ${LAYOUTS[el.value]}`);
+    }
+    if (el.dataset.act === 'forget') forgetDevice(hwid);
+}
+
+const deviceListEl = document.getElementById('device-list');
+if (deviceListEl) {
+    deviceListEl.addEventListener('change', deviceRowAction);
+    deviceListEl.addEventListener('click', (e) => {
+        if (e.target.closest('[data-act="forget"]')) deviceRowAction(e);
+    });
 }
 
 function pairDevice() {
@@ -180,11 +206,7 @@ function pairDevice() {
     showToast("Press any key on the macropad you want to add!");
 }
 
-const renameDevice = (id, name) => window.electronAPI.updateDevice({ hwid: decodeURIComponent(id), name });
-const relayoutDevice = (id, layout) => window.electronAPI.updateDevice({ hwid: decodeURIComponent(id), layout });
-
-function forgetDevice(id) {
-    const hwid = decodeURIComponent(id);
+function forgetDevice(hwid) {
     showCustomAlert(
         "Forget this Macropad?",
         "Its keys go back to typing normally. Macros bound to it are kept, but will not fire until you pair it again.",
