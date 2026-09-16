@@ -25,6 +25,7 @@ Capture runs through the [Interception](https://github.com/oblitum/Interception)
 * **Auto-Start:** Launch with Windows and reconnect automatically to your saved macropad, with the option to start minimized straight to the tray.
 * **Draggable Overlay Chassis:** Reposition the floating keyboard overlay anywhere on screen; its position is remembered between sessions.
 * **Auto-Run:** Designate a specific profile to load automatically when your computer boots.
+* **Multiple Macropads:** Pair several keyboards at once, each with its own overlay layout. Macros remember which board they belong to.
 
 ## Tech Stack
 
@@ -83,13 +84,21 @@ npm run build
 
 1. **Connect your Macropad:** Open the app and click 🔗 Connect Macropad, then press a key on your secondary keyboard. That device is now linked and its keys stop reaching Windows. (The pairing press itself still goes through — every press after it is captured.)
 
-2. **Map a Key:** Click the "1. Press key" input box, then press the key you want to program.
+2. **Map a Key:** Click the "1. Press key" input box, then press the key on the macropad itself. That records both which key it was and which board it came from.
 
 3. **Assign an Action:** Choose whether to send a keyboard shortcut (e.g., Ctrl+Shift+C), launch a program (e.g., `C:\Photoshop.exe`), show the time as a toast, or run JavaScript.
 
 4. **Save:** Click 💾 Save & Apply Profile. Changes take effect immediately — there is no script to compile and no process to restart.
 
 5. **Switching Devices:** To use a different secondary keyboard, open Settings and click 🔄 Reset Macropad Connection. The next key you press on any keyboard becomes the new macropad.
+
+### Multiple macropads
+
+**Settings → Paired Macropads → Add Macropad**, then press a key on the new board. Each paired macropad gets a name and an overlay layout (full keyboard, tenkeyless, or numpad), and the overlay grows tabs to switch between them.
+
+A profile covers all of your macropads at once, so switching profile re-maps every board together. Each macro remembers which board it was bound on, and a macro bound to a specific board wins over one left on "any macropad" — so you can share most of a profile and override only the keys that differ.
+
+Because a macro with no board set fires on **every** macropad, pairing a second one offers to assign your existing macros to the first board. Take that offer unless you actually want the same keys on both.
 
 ### JavaScript macros
 
@@ -129,14 +138,14 @@ To inspect devices directly, `node spike-interception.js` prints the hardware ID
 
 * [x] Drop the LuaMacros and AutoHotkey dependencies — capture and execution are both in-process
 * [x] JavaScript macros
+* [x] Multiple macropads at once, each with its own overlay layout
 
 **Planned**
 
-* [ ] **Multiple macropads at once.** The driver already reports up to 10 keyboards independently and the capture loop sees all of them; only one is currently bound. This is next.
 * [ ] **MIDI controllers as a macro source.** Electron ships the Web MIDI API, so this needs no new dependency — just hardware to test against.
 * [ ] **Raw HID for custom QMK/ZMK builds.** A board with `RAW_ENABLE` can send macro events directly on usage page `0xFF60`, with no interception needed at all.
 
-The last two are designed but not built — neither has been tested against real hardware yet.
+Both are designed but not built — neither has been tested against real hardware yet.
 
 ## Third-party components
 
