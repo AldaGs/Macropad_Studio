@@ -1,6 +1,6 @@
 {
   "name": "macropad-studio",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A custom Macropad manager",
   "main": "src/main.js",
   "scripts": {
