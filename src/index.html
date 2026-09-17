@@ -51,7 +51,10 @@
 
             <div class="input-group" id="input-run" style="display: none;">
                 <label>3. Enter Program Path</label>
-                <input type="text" id="path-input" placeholder="Path to .exe file...">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="path-input" placeholder="Path to .exe file...">
+                    <button onclick="browseForProgram()" style="margin: 0; width: auto; white-space: nowrap; background: #555;">Browse...</button>
+                </div>
             </div>
 
             <div class="input-group" id="input-custom" style="display: none;">
@@ -62,6 +65,7 @@
                     <code>run('app.exe')</code>, <code>notify('msg')</code>, <code>beep(freq, ms)</code>,
                     <code>clipboard.read/write/clear</code>, <code>await clipWait(ms)</code>.
                     Plus <code>fetch</code>, <code>Date</code> and the rest of Node.
+                    Help &rarr; JavaScript Reference opens MDN.
                 </small>
             </div>
 

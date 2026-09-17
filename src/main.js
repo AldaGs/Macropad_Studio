@@ -223,10 +223,13 @@ const menuTemplate = [
       role: 'help',
       submenu: [
         {
-          label: 'AutoHotkey v2 Key List Reference',
-          click: async () => {
-            await shell.openExternal('https://www.autohotkey.com/docs/v2/KeyList.htm');
-          }
+          // send() still parses AHK Send syntax, so the key-name table stays useful.
+          label: 'Shortcut Key Names Reference',
+          click: () => shell.openExternal('https://www.autohotkey.com/docs/v2/KeyList.htm')
+        },
+        {
+          label: 'JavaScript Reference (MDN)',
+          click: () => shell.openExternal('https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference')
         }
       ]
     }
@@ -540,6 +543,15 @@ ipcMain.handle('export-profile', async (event, profileData) => {
         return true;
     }
     return false;
+});
+
+ipcMain.handle('browse-program', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select a Program',
+        filters: [{ name: 'Programs', extensions: ['exe', 'bat', 'cmd', 'lnk'] }, { name: 'All Files', extensions: ['*'] }],
+        properties: ['openFile']
+    });
+    return canceled ? null : filePaths[0];
 });
 
 ipcMain.handle('import-profile', async () => {

@@ -71,6 +71,8 @@
    makes the card the containing block for fixed descendants. Living outside the
    card is the only thing no ancestor can clip or offset. */
 #kb-tooltip {
+    /* Parked on <html>, so it never inherits body's font - set it here. */
+    font-family: 'Segoe UI', Tahoma, sans-serif;
     position: fixed; left: 0; top: 0;
     visibility: hidden; opacity: 0;
     transition: opacity 0.2s;

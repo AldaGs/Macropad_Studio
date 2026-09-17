@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Import and Export file dialogs
     exportProfile: (profileData) => ipcRenderer.invoke('export-profile', profileData),
     importProfile: () => ipcRenderer.invoke('import-profile'),
+    browseForProgram: () => ipcRenderer.invoke('browse-program'),
 
     onLoadExternalProfile: (callback) => ipcRenderer.on('load-external-profile', callback),
 

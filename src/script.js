@@ -599,6 +599,11 @@ document.getElementById('grid-keyboard').addEventListener('click', (e) => {
     renderGrid();
 });
 
+async function browseForProgram() {
+    const file = await window.electronAPI.browseForProgram();
+    if (file) document.getElementById('path-input').value = file;
+}
+
 function resetForm(delayButtonReset = false) {
     const keyField = document.getElementById('keyId');
     keyField.value = '';
