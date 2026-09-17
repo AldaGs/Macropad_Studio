@@ -6,7 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const { EventEmitter } = require('events');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const koffi = require('koffi');
 const { parseSend } = require('./send-parser');
 
@@ -94,6 +94,27 @@ function tokenizeArgs(s) {
     args.push(m[1] !== undefined ? m[1] : m[2].replace(/"([^"]*)"/g, '$1'));
   }
   return args;
+}
+
+// CreateProcess searches PATH only, so a bare "chrome.exe" fails even though the Run box
+// opens it - Explorer also reads the App Paths registry key. Mirror that lookup so macros
+// can be written the way users expect. Full paths and non-.exe targets are passed through.
+const exeCache = new Map();
+function resolveExe(file) {
+  if (/[\\/]/.test(file) || !/\.exe$/i.test(file)) return file;
+  if (exeCache.has(file)) return exeCache.get(file);
+  const key = 'Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\' + file;
+  let found = file;
+  for (const root of ['HKCU', 'HKLM']) {
+    try {
+      const out = execFileSync('reg', ['query', root + '\\' + key, '/ve'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const m = out.match(/REG_SZ\s+(.+)/);
+      if (m) { found = m[1].trim().replace(/^"|"$/g, ''); break; }
+    } catch { /* no such key under this root */ }
+  }
+  exeCache.set(file, found);
+  return found;
 }
 
 // --- Toast text ---------------------------------------------------------------
@@ -211,9 +232,14 @@ class Engine extends EventEmitter {
   // PATH for bare names like calc.exe.
   launch(value) {
     const { file, args } = splitCommand(value);
-    const child = spawn(file, args, { detached: true, stdio: 'ignore' });
+    const child = spawn(resolveExe(file), args, { detached: true, stdio: 'ignore' });
     // Folders, documents, URLs and .bat files are not executables - let the shell open those.
-    child.on('error', () => this.openPath && this.openPath(value));
+    // Only the target goes to the shell: it opens one thing and takes no arguments, so
+    // handing it the whole command line produces a bogus "Windows cannot find" dialog.
+    child.on('error', (e) => {
+      if (this.openPath) this.openPath(file);
+      else this.emit('error', e);
+    });
     child.unref();
   }
 
@@ -319,6 +345,16 @@ function selfTest() {
     === 'chrome.exe | --profile-directory=Default | https://web.whatsapp.com/', 'flag plus quoted url');
   console.assert(cmd('C:\\Program Files\\App\\a.exe  -x  -y') === 'C:\\Program Files\\App\\a.exe | -x | -y',
     'spaced path with args');
+
+  // App Paths lookup: bare exe names resolve to a real path, everything else passes through.
+  console.assert(resolveExe('C:\\Windows\\System32\\calc.exe') === 'C:\\Windows\\System32\\calc.exe',
+    'a full path is never rewritten');
+  console.assert(resolveExe('notepad') === 'notepad', 'non-.exe targets are left alone');
+  console.assert(resolveExe('__mps_nonexistent__.exe') === '__mps_nonexistent__.exe',
+    'an unregistered exe falls through unchanged');
+  const resolved = resolveExe('chrome.exe');
+  console.assert(resolved === 'chrome.exe' || (/chrome\.exe$/i.test(resolved) && /[\\/]/.test(resolved)),
+    'chrome.exe resolves to a full path when Chrome is installed, got ' + resolved);
 
   // Regression: run macros must not go through a shell. Under shell:true cmd.exe splits an
   // unquoted path at its first space and spawn reports no error at all, so this stays silent.
