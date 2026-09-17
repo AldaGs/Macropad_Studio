@@ -1,0 +1,117 @@
+/* Shared by the overlay window and the main window's grid view.
+   One stylesheet so a keycap tweak does not have to be made twice. */
+
+.keyboard-container { display: flex; gap: 20px; align-items: flex-end; }
+.key-row { display: flex; gap: 5px; margin-bottom: 5px; justify-content: center; }
+.key.w-1-5 { min-width: 65px; } .key.w-2 { min-width: 90px; } .key.w-2-25 { min-width: 105px; } .key.w-2-75 { min-width: 125px; } .key.w-space { min-width: 250px; } .key.h-2 { height: 85px; }
+
+/* --- HOLLOW BEVELED KEYS --- */
+.key {
+    position: relative;
+    background: transparent;
+    border: 1px solid var(--key-border);
+    border-radius: 6px;
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: default;
+    box-shadow: rgba(0, 0, 0, 0.5);
+    transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    -webkit-app-region: no-drag; /* the overlay chassis is a drag region; keys opt out */
+}
+
+.key:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+/* --- THE NEON GLOW (Active Macros) --- */
+/* One glow, recoloured per action type: a key's hue says what it does, so a
+   cluster of launchers or a row of shortcuts reads at a glance. */
+:root {
+    --type-send: #0abbdf;    /* keyboard shortcut */
+    --type-run: #e024c5;     /* launches a program */
+    --type-js: #f0a020;      /* runs JavaScript */
+    --type-clock: #2fbf71;   /* time & date toast */
+}
+
+.key.active {
+    --key-accent: var(--type-send);
+    border-color: color-mix(in srgb, var(--key-accent) 50%, transparent);
+    color: var(--key-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--key-accent) 15%, transparent);
+    text-shadow: 0 0 5px color-mix(in srgb, var(--key-accent) 50%, transparent);
+}
+
+.key.type-run { --key-accent: var(--type-run); }
+.key.type-js { --key-accent: var(--type-js); }
+.key.type-clock { --key-accent: var(--type-clock); }
+
+.key.active:hover {
+    background: color-mix(in srgb, var(--key-accent) 6%, transparent);
+    border-color: var(--key-accent);
+    box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.2), inset -1px -1px 0px rgba(0, 0, 0, 0.6), 0 0 6px color-mix(in srgb, var(--key-accent) 25%, transparent);
+    transform: translateY(-2px);
+}
+
+/* --- TYPE LEGEND --- */
+.key-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 10px 0; font-size: 0.78em; color: var(--text-muted); }
+.key-legend span { display: flex; align-items: center; gap: 6px; }
+.key-legend i { width: 9px; height: 9px; border-radius: 3px; border: 1px solid currentColor; }
+.key-legend .lg-send { color: var(--type-send); }
+.key-legend .lg-run { color: var(--type-run); }
+.key-legend .lg-js { color: var(--type-js); }
+.key-legend .lg-clock { color: var(--type-clock); }
+
+/* Tooltip Logic */
+/* One shared node parked on <html>, placed by showTooltip() on hover. As a child of
+   the key it was cropped by the editor's horizontal scroller (top row, both edge
+   columns); position:fixed alone did not save it, because .card's backdrop-filter
+   makes the card the containing block for fixed descendants. Living outside the
+   card is the only thing no ancestor can clip or offset. */
+#kb-tooltip {
+    position: fixed; left: 0; top: 0;
+    visibility: hidden; opacity: 0;
+    transition: opacity 0.2s;
+    background: var(--bg-glass, rgba(15, 20, 25, 0.96));
+    backdrop-filter: blur(10px);
+    color: var(--text-main, #e2e8f0);
+    text-align: center;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 2000;
+    border: 1px solid var(--accent-cyan, #0abbdf);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+#kb-tooltip.show { visibility: visible; opacity: 1; }
+
+.nav-cluster { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;}
+.arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
+.numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
+
+/* A layout is just which blocks of the full keyboard this device actually has.
+   These live in CSS rather than inline on the element: an inline display beats a
+   stylesheet rule, so the hide below would never win. */
+.block-nav { display: flex; flex-direction: column; justify-content: space-between; }
+.layout-numpad .block-main, .layout-numpad .block-nav { display: none; }
+.layout-tkl .block-numpad { display: none; }
+
+/* --- DEVICE TABS (overlay + grid view) --- */
+.device-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.device-tabs:empty { display: none; }
+.device-tab {
+    /* .glass-panel is a drag region, so anything clickable has to opt out
+       or the click just moves the window - same as .close-btn and .key. */
+    -webkit-app-region: no-drag;
+    padding: 4px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--key-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: #bbb;
+    font-size: 12px;
+    cursor: pointer;
+}
+.device-tab.selected { background: #007acc; border-color: #007acc; color: #fff; }

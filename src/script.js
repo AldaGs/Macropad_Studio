@@ -125,17 +125,16 @@ function toggleMinimizeTray() {
     }
 
 // --- ACCORDION LOGIC ---
+// Settings is a screen of its own, so the editor keeps the whole window to itself.
 function toggleSettings() {
-    const content = document.getElementById('settings-content');
-    const chevron = document.getElementById('settings-chevron');
-    
-    content.classList.toggle('open');
-    
-    if (content.classList.contains('open')) {
-        chevron.style.transform = "rotate(180deg)";
-    } else {
-        chevron.style.transform = "rotate(0deg)";
-    }
+    pulseButton('settings-btn');
+    const settings = document.getElementById('settings-screen');
+    const showing = settings.style.display === 'none';
+
+    settings.style.display = showing ? '' : 'none';
+    document.getElementById('editor-screen').style.display = showing ? 'none' : '';
+    document.getElementById('settings-btn-label').innerText = showing ? 'Back to Editor' : 'Settings';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function driverSetup() {
@@ -444,7 +443,18 @@ function updateProfileDropdown() {
 function renderList(animatedKeyId = null) {
     const ul = document.getElementById('macro-list');
     ul.innerHTML = '';
-    const currentMacros = appData.profiles[appData.activeProfile] || [];
+    let currentMacros = appData.profiles[appData.activeProfile] || [];
+
+    // The grid answers "what is on this key?"; the search answers "where did I put
+    // that Discord mute?". Match on everything the row actually shows.
+    const query = (document.getElementById('macro-search').value || '').trim().toLowerCase();
+    if (query) {
+        currentMacros = currentMacros.filter(m =>
+            [m.visualKey, m.desc, m.visualValue, m.value]
+                .some(f => f && String(f).toLowerCase().includes(query)));
+    }
+    document.getElementById('search-empty').style.display =
+        query && !currentMacros.length ? '' : 'none';
 
     currentMacros.forEach(macro => {
         const li = document.createElement('li');
@@ -484,7 +494,67 @@ function renderList(animatedKeyId = null) {
         `;
         ul.appendChild(li);
     });
+
+    renderGrid();   // the same macros, drawn on the keyboard
 }
+
+// --- KEYBOARD GRID VIEW ---
+// A macropad is a physical object, so the primary way to find a macro is to point at
+// the key it lives on. The list is still there behind the toggle for searching by eye.
+let gridDevice = 0;             // index into pairedMacropads
+let gridShown = new Map();      // keyId -> the macro actually drawn on it
+
+function renderGrid() {
+    const board = document.getElementById('grid-keyboard');
+    if (!board) return;
+    if (!board.querySelector('.key')) board.innerHTML = keyboardMarkup();
+
+    if (gridDevice >= pairedMacropads.length) gridDevice = 0;
+    renderDeviceTabs(document.getElementById('grid-device-tabs'), pairedMacropads, gridDevice);
+
+    const macros = appData.profiles[appData.activeProfile] || [];
+    gridShown = paintKeyboard(board, macros, pairedMacropads[gridDevice], 'Click to assign');
+
+    board.querySelectorAll('.key.editing').forEach(k => k.classList.remove('editing'));
+    if (editingKeyId !== null) {
+        board.querySelectorAll(`.key[data-id="${editingKeyId}"]`).forEach(k => k.classList.add('editing'));
+    }
+}
+
+function setMacroView(view) {
+    const grid = view === 'grid';
+    document.getElementById('grid-view').style.display = grid ? '' : 'none';
+    document.getElementById('list-view').style.display = grid ? 'none' : '';
+    document.getElementById('view-grid-btn').classList.toggle('selected', grid);
+    document.getElementById('view-list-btn').classList.toggle('selected', !grid);
+}
+
+document.getElementById('grid-device-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.device-tab');
+    if (!tab) return;
+    gridDevice = Number(tab.dataset.index);
+    renderGrid();
+});
+
+document.getElementById('grid-keyboard').addEventListener('click', (e) => {
+    const key = e.target.closest('.key');
+    if (!key) return;
+    const keyId = key.dataset.id;
+
+    const macro = gridShown.get(keyId);
+    if (macro) { loadMacroIntoEditor(macro); return; }
+
+    // Free key: set the editor up for a new macro on it, so the user never has to
+    // press the physical key just to say which one they meant.
+    resetForm();
+    const keyField = document.getElementById('keyId');
+    keyField.value = vkToName[keyId] || ("ID:" + keyId);
+    keyField.dataset.keyid = keyId;
+    const device = pairedMacropads[gridDevice];
+    if (device) keyField.dataset.device = device.hwid; else delete keyField.dataset.device;
+    document.getElementById('shortcut-input').focus();
+    renderGrid();
+});
 
 function resetForm(delayButtonReset = false) {
     const keyField = document.getElementById('keyId');
@@ -498,7 +568,8 @@ function resetForm(delayButtonReset = false) {
     document.getElementById('action-type').value = 'send';
     toggleActionInput();
     editingKeyId = null;
-    
+    renderGrid();   // drop the "editing" highlight
+
     const restoreButton = () => {
         const addBtn = document.getElementById('add-btn');
         addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add to List`;
@@ -621,43 +692,49 @@ function addMacroToList() {
 }
 
 function editMacro(button) {
-    const li = button.parentElement.parentElement;
-    const span = li.querySelector('span');
-    
-    const isKeyManual = span.getAttribute('data-iskeymanual') === 'true';
+    const span = button.parentElement.parentElement.querySelector('span');
+    const macro = (appData.profiles[appData.activeProfile] || []).find(m =>
+        m.keyId == span.getAttribute('data-keyid') &&
+        (m.device || '') === (span.getAttribute('data-device') || ''));
+    if (macro) loadMacroIntoEditor(macro);
+}
+
+// Both the list rows and the keyboard grid open a macro through here, so there is
+// one definition of "what the editor looks like with this macro in it".
+function loadMacroIntoEditor(macro) {
+    const isKeyManual = macro.isKeyManual === true || macro.isKeyManual === 'true';
     document.getElementById('key-manual-toggle').checked = isKeyManual;
     toggleKeyManualMode();
 
-    const isShortcutManual = span.getAttribute('data-isshortcutmanual') === 'true';
+    const isShortcutManual = macro.isShortcutManual === true || macro.isShortcutManual === 'true';
     document.getElementById('manual-toggle').checked = isShortcutManual;
     toggleManualMode();
 
     const keyField = document.getElementById('keyId');
-    keyField.value = span.getAttribute('data-visualkey').replace("ID:", "");
-    keyField.dataset.keyid = span.getAttribute('data-keyid');
-    const boundTo = span.getAttribute('data-device') || '';
-    if (boundTo) keyField.dataset.device = boundTo; else delete keyField.dataset.device;
+    keyField.value = String(macro.visualKey).replace("ID:", "");
+    keyField.dataset.keyid = macro.keyId;
+    if (macro.device) keyField.dataset.device = macro.device; else delete keyField.dataset.device;
 
     // A legacy AHK macro (from an .mps exported before the engine swap) opens in the
     // JavaScript editor with its old code visible, so it can be rewritten in place.
-    const rawType = span.getAttribute('data-type');
-    document.getElementById('action-type').value = rawType === 'custom' ? 'js' : rawType;
+    document.getElementById('action-type').value = macro.type === 'custom' ? 'js' : macro.type;
     toggleActionInput();
-    if (rawType === 'custom') showToast("This was an AutoHotkey macro - rewrite it as JavaScript.", true);
-    
-    if (span.getAttribute('data-type') === 'send') {
-        document.getElementById('shortcut-input').value = span.getAttribute('data-visualvalue');
-        if (!isShortcutManual) document.getElementById('shortcut-input').dataset.ahk = decodeURIComponent(span.getAttribute('data-value'));
-    } else if (span.getAttribute('data-type') === 'run') {
-        document.getElementById('path-input').value = decodeURIComponent(span.getAttribute('data-value'));
-    } else if (span.getAttribute('data-type') === 'custom' || span.getAttribute('data-type') === 'js') {
-        document.getElementById('custom-input').value = decodeURIComponent(span.getAttribute('data-value'));
-    } else if (span.getAttribute('data-type') === 'clock') {
-        document.getElementById('clock-format').value = decodeURIComponent(span.getAttribute('data-value'));
+    if (macro.type === 'custom') showToast("This was an AutoHotkey macro - rewrite it as JavaScript.", true);
+
+    if (macro.type === 'send') {
+        document.getElementById('shortcut-input').value = macro.visualValue;
+        if (!isShortcutManual) document.getElementById('shortcut-input').dataset.ahk = macro.value;
+    } else if (macro.type === 'run') {
+        document.getElementById('path-input').value = macro.value;
+    } else if (macro.type === 'custom' || macro.type === 'js') {
+        document.getElementById('custom-input').value = macro.value;
+    } else if (macro.type === 'clock') {
+        document.getElementById('clock-format').value = macro.value;
     }
-    document.getElementById('desc-input').value = span.getAttribute('data-desc') || "";
-    
-    editingKeyId = span.getAttribute('data-keyid');
+    document.getElementById('desc-input').value = macro.desc || "";
+
+    editingKeyId = macro.keyId;
+    renderGrid();   // move the "editing" highlight onto this key
     const addBtn = document.getElementById('add-btn');
     addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Update Macro`;
     addBtn.style.background = "#d4a373";

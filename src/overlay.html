@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Macropad Overlay</title>
+    <link rel="stylesheet" href="keyboard.css">
     <style>
 /* --- THE STUDIO GLASS PALETTE --- */
         :root {
@@ -16,21 +17,21 @@
             --text-main: #e2e8f0;
         }
 
-        body { 
-            margin: 0; 
-            padding: 20px; 
-            height: 100vh; 
+        body {
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
             box-sizing: border-box;
-            background: transparent; 
-            font-family: 'Segoe UI', Tahoma, sans-serif; 
-            user-select: none; 
-            color: var(--text-main); 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
+            background: transparent;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            user-select: none;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             overflow: hidden;
-            animation: popIn 0.3s cubic-bezier(0.10, 0.60, 0.30, 1.00) forwards; 
+            animation: popIn 0.3s cubic-bezier(0.10, 0.60, 0.30, 1.00) forwards;
         }
 
         /* --- THE FROSTED GLASS CHASSIS --- */
@@ -40,7 +41,7 @@
             border-radius: 12px;
             padding: 35px 25px 25px 25px; /* Cleaned up duplicate */
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05); /* Cleaned up duplicate */
-            position: relative; 
+            position: relative;
             -webkit-app-region: drag; /* Now it will actually work! */
         }
 
@@ -48,14 +49,14 @@
         .drag-bar {
             width: 100%;
             height: 30px;
-            -webkit-app-region: drag; 
+            -webkit-app-region: drag;
             display: flex;
             justify-content: center;
             align-items: center;
             margin-bottom: 20px;
             position: relative;
         }
-        
+
         .drag-dots { display: flex; gap: 4px; }
         .drag-dots span {
             width: 4px;
@@ -65,106 +66,32 @@
         }
 
         /* OVERHAULED: Close Button */
-        .close-btn { 
+        .close-btn {
             -webkit-app-region: no-drag; /* Crucial: Prevents dragging when you try to click 'Close' */
-            position: absolute; 
+            position: absolute;
             top: 12px;   /* Tucked into the new top corner */
-            right: 12px; 
-            background: transparent; 
-            border: 1px solid rgba(255, 71, 87, 0.5); 
-            color: var(--accent-warning); 
-            width: 28px; 
-            height: 28px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
+            right: 12px;
+            background: transparent;
+            border: 1px solid rgba(255, 71, 87, 0.5);
+            color: var(--accent-warning);
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             font-weight: bold;
             box-shadow: rgba(0, 0, 0, 0.5);
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .close-btn:hover { 
-            background: rgba(255, 71, 87, 0.05); 
-            border-color: var(--accent-warning); 
-            box-shadow: 0 0 10px rgba(255, 71, 87, 0.15); 
+        .close-btn:hover {
+            background: rgba(255, 71, 87, 0.05);
+            border-color: var(--accent-warning);
+            box-shadow: 0 0 10px rgba(255, 71, 87, 0.15);
             color: white;
             transform: translateY(-2px);
         }
-        
-        /* Layout Grid */
-        .keyboard-container { display: flex; gap: 20px; align-items: flex-end; }
-        .key-row { display: flex; gap: 5px; margin-bottom: 5px; justify-content: center; }
-        .key.w-1-5 { min-width: 65px; } .key.w-2 { min-width: 90px; } .key.w-2-25 { min-width: 105px; } .key.w-2-75 { min-width: 125px; } .key.w-space { min-width: 250px; } .key.h-2 { height: 85px; }
-        
-        /* --- HOLLOW BEVELED KEYS --- */
-        .key {
-            position: relative; 
-            background: transparent; 
-            border: 1px solid var(--key-border); 
-            border-radius: 6px; 
-            min-width: 40px; 
-            height: 40px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            font-size: 0.85em; 
-            font-weight: 600; 
-            cursor: default; 
-            box-shadow: rgba(0, 0, 0, 0.5);
-            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            -webkit-app-region: no-drag; /* ADD THIS: Allows your tooltips and neon glows to trigger! */
-        }
-
-        .key:hover {
-            box-shadow:  0 4px 10px rgba(0,0,0,0.3); 
-        }
-
-        /* --- THE NEON GLOW (Active Macros) --- */
-        .key.active { 
-            border-color: rgba(0, 212, 255, 0.5); 
-            color: var(--accent-cyan);
-            box-shadow:  0 0 8px rgba(0, 212, 255, 0.15); 
-            text-shadow: 0 0 5px rgba(0, 212, 255, 0.5); 
-        }
-
-        .key.active:hover {
-            background: rgba(0, 212, 255, 0.05); 
-            border-color: var(--accent-cyan);
-            box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.2), inset -1px -1px 0px rgba(0, 0, 0, 0.6), 0 0 6px rgba(0, 212, 255, 0.25); 
-            transform: translateY(-2px); 
-        }
-        
-        /* Tooltip Logic */
-        .tooltip { visibility: hidden; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: var(--bg-glass); backdrop-filter: blur(10px); color: var(--text-main); text-align: center; padding: 6px 12px; border-radius: 6px; font-size: 1em; white-space: nowrap; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; border: 1px solid var(--accent-cyan); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);}
-        .key:hover .tooltip { visibility: visible; opacity: 1; }
-
-        .nav-cluster { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;}
-        .arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
-        .numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
-
-        /* A layout is just which blocks of the full keyboard this device actually has.
-           These live in CSS rather than inline on the element: an inline display beats a
-           stylesheet rule, so the hide below would never win. */
-        .block-nav { display: flex; flex-direction: column; justify-content: space-between; }
-        .layout-numpad .block-main, .layout-numpad .block-nav { display: none; }
-        .layout-tkl .block-numpad { display: none; }
-
-        #device-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-        #device-tabs:empty { display: none; }
-        .device-tab {
-            /* .glass-panel is a drag region, so anything clickable has to opt out
-               or the click just moves the window - same as .close-btn and .key. */
-            -webkit-app-region: no-drag;
-            padding: 4px 14px;
-            border-radius: 8px;
-            border: 1px solid var(--key-border);
-            background: rgba(255, 255, 255, 0.04);
-            color: #bbb;
-            font-size: 12px;
-            cursor: pointer;
-        }
-        .device-tab.selected { background: #007acc; border-color: #007acc; color: #fff; }
 
         body.closing { animation: popOut 0.2s cubic-bezier(0.70, 0.00, 0.80, 0.40) forwards; }
         @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -174,7 +101,7 @@
 <body>
 
     <div class="glass-panel" >
-        
+
         <div class="drag-bar">
             <div class="drag-dots">
                 <span></span><span></span><span></span>
@@ -182,132 +109,36 @@
             <button class="close-btn" title="Close Overlay" onclick="animateAndClose()">X</button>
         </div>
 
-        <div id="device-tabs"></div>
+        <div class="device-tabs" id="device-tabs"></div>
 
-        <div class="keyboard-container layout-full" id="keyboard">
-        <div class="main-block block-main">
-            <div class="key-row" style="margin-bottom: 15px;">
-                <div class="key" data-id="27" style="margin-right: 20px;">ESC</div>
-                
-                <div class="key" data-id="112">F1</div>
-                <div class="key" data-id="113">F2</div>
-                <div class="key" data-id="114">F3</div>
-                <div class="key" data-id="115" style="margin-right: 15px;">F4</div>
-                
-                <div class="key" data-id="116">F5</div>
-                <div class="key" data-id="117">F6</div>
-                <div class="key" data-id="118">F7</div>
-                <div class="key" data-id="119" style="margin-right: 15px;">F8</div>
-                
-                <div class="key" data-id="120">F9</div>
-                <div class="key" data-id="121">F10</div>
-                <div class="key" data-id="122">F11</div>
-                <div class="key" data-id="123">F12</div>
-            </div>
-
-            <div class="key-row">
-                <div class="key" data-id="192">~</div><div class="key" data-id="49">1</div><div class="key" data-id="50">2</div><div class="key" data-id="51">3</div><div class="key" data-id="52">4</div><div class="key" data-id="53">5</div><div class="key" data-id="54">6</div><div class="key" data-id="55">7</div><div class="key" data-id="56">8</div><div class="key" data-id="57">9</div><div class="key" data-id="48">0</div><div class="key" data-id="189">-</div><div class="key" data-id="187">=</div><div class="key w-2" data-id="8">BACK</div>
-            </div>
-            <div class="key-row">
-                <div class="key w-1-5" data-id="9">TAB</div><div class="key" data-id="81">Q</div><div class="key" data-id="87">W</div><div class="key" data-id="69">E</div><div class="key" data-id="82">R</div><div class="key" data-id="84">T</div><div class="key" data-id="89">Y</div><div class="key" data-id="85">U</div><div class="key" data-id="73">I</div><div class="key" data-id="79">O</div><div class="key" data-id="80">P</div><div class="key" data-id="219">[</div><div class="key" data-id="221">]</div><div class="key w-1-5" data-id="220">\</div>
-            </div>
-            <div class="key-row">
-                <div class="key w-2" data-id="20">CAPS</div><div class="key" data-id="65">A</div><div class="key" data-id="83">S</div><div class="key" data-id="68">D</div><div class="key" data-id="70">F</div><div class="key" data-id="71">G</div><div class="key" data-id="72">H</div><div class="key" data-id="74">J</div><div class="key" data-id="75">K</div><div class="key" data-id="76">L</div><div class="key" data-id="186">;</div><div class="key" data-id="222">'</div><div class="key w-2-25" data-id="13">ENTER</div>
-            </div>
-            <div class="key-row">
-                <div class="key w-2-25" data-id="16">SHIFT</div><div class="key" data-id="90">Z</div><div class="key" data-id="88">X</div><div class="key" data-id="67">C</div><div class="key" data-id="86">V</div><div class="key" data-id="66">B</div><div class="key" data-id="78">N</div><div class="key" data-id="77">M</div><div class="key" data-id="188">,</div><div class="key" data-id="190">.</div><div class="key" data-id="191">/</div><div class="key w-2-75" data-id="16">SHIFT</div>
-            </div>
-            <div class="key-row">
-                <div class="key w-1-5" data-id="17">CTRL</div><div class="key w-1-5" data-id="91">WIN</div><div class="key w-1-5" data-id="18">ALT</div><div class="key w-space" data-id="32">SPACE</div><div class="key w-1-5" data-id="18">ALT</div><div class="key w-1-5" data-id="17">CTRL</div>
-            </div>
-        </div>
-
-        <div class="block-nav">
-            <div class="nav-cluster">
-                <div class="key-row"><div class="key" data-id="45">INS</div><div class="key" data-id="36">HOME</div><div class="key" data-id="33">PGUP</div></div>
-                <div class="key-row"><div class="key" data-id="46">DEL</div><div class="key" data-id="35">END</div><div class="key" data-id="34">PGDN</div></div>
-            </div>
-            <div class="arrow-cluster">
-                <div></div><div class="key" data-id="38">▲</div><div></div>
-                <div class="key" data-id="37">◀</div><div class="key" data-id="40">▼</div><div class="key" data-id="39">▶</div>
-            </div>
-        </div>
-
-        <div class="numpad-cluster block-numpad">
-            <div class="key" data-id="144">NUM</div><div class="key" data-id="111">/</div><div class="key" data-id="106">*</div><div class="key" data-id="109">-</div>
-            <div class="key" data-id="103">7</div><div class="key" data-id="104">8</div><div class="key" data-id="105">9</div><div class="key h-2" style="grid-row: span 2;" data-id="107">+</div>
-            <div class="key" data-id="100">4</div><div class="key" data-id="101">5</div><div class="key" data-id="102">6</div>
-            <div class="key" data-id="97">1</div><div class="key" data-id="98">2</div><div class="key" data-id="99">3</div><div class="key h-2" style="grid-row: span 2;" data-id="13">ENT</div>
-            <div class="key w-2" style="grid-column: span 2;" data-id="96">0</div><div class="key" data-id="110">.</div>
-        </div>
+        <div class="keyboard-container layout-full" id="keyboard"></div>
     </div>
 
+    <script src="keyboard.js"></script>
     <script>
         // NEW: Triggers the CSS animation before hiding the window
         function animateAndClose() {
             // 1. Add the closing class to start the CSS animation
             document.body.classList.add('closing');
-            
+
             // 2. Wait exactly 150ms (the length of the popOut animation)
             setTimeout(() => {
                 // 3. Tell Electron to actually hide the window
                 window.electronAPI.toggleOverlay();
-                
+
                 // 4. Remove the class instantly so it's ready to "Pop In" next time!
                 document.body.classList.remove('closing');
-            }, 250); 
+            }, 250);
         }
         let macros = [];
         let devices = [];
         let selected = 0;   // index into devices
 
+        document.getElementById('keyboard').innerHTML = keyboardMarkup();
+
         function draw() {
-            const device = devices[selected];
-
-            // Only the blocks this macropad physically has
-            const keyboard = document.getElementById('keyboard');
-            keyboard.className = 'keyboard-container layout-' + ((device && device.layout) || 'full');
-
-            // Tabs only earn their space once there is more than one macropad
-            const tabs = document.getElementById('device-tabs');
-            tabs.innerHTML = devices.length > 1
-                ? devices.map((d, i) =>
-                    `<div class="device-tab${i === selected ? ' selected' : ''}" data-index="${i}">${d.name}</div>`).join('')
-                : '';
-
-            // Reset every key, creating its tooltip the first time round
-            document.querySelectorAll('.key').forEach(key => {
-                key.classList.remove('active');
-                let tooltip = key.querySelector('.tooltip');
-                if (!tooltip) {
-                    tooltip = document.createElement('span');
-                    tooltip.className = 'tooltip';
-                    key.appendChild(tooltip);
-                }
-                tooltip.innerText = "Free";
-            });
-
-            // Same precedence the engine uses: a macro bound to this macropad beats one
-            // left on "any device", so the overlay shows what would actually fire.
-            const hwid = device ? device.hwid : null;
-            const shown = new Map();
-            for (const m of macros) {
-                if (m.device && m.device !== hwid) continue;
-                const existing = shown.get(String(m.keyId));
-                if (existing && existing.device && !m.device) continue;
-                shown.set(String(m.keyId), m);
-            }
-
-            // querySelectorAll, not querySelector: data-id 13 is both main Enter and numpad
-            // ENT, and 16/17/18 are the left and right modifier pairs. Only lighting the
-            // first match left the numpad key dark whenever it was mapped.
-            for (const [keyId, macro] of shown) {
-                document.querySelectorAll(`.key[data-id="${keyId}"]`).forEach(key => {
-                    key.classList.add('active');
-                    const tooltip = key.querySelector('.tooltip');
-                    if (tooltip) tooltip.innerText = macro.desc ? macro.desc : macro.visualValue;
-                });
-            }
+            renderDeviceTabs(document.getElementById('device-tabs'), devices, selected);
+            paintKeyboard(document.getElementById('keyboard'), macros, devices[selected]);
         }
 
         document.getElementById('device-tabs').addEventListener('click', (e) => {

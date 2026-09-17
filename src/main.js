@@ -481,7 +481,8 @@ ipcMain.on('close-decision', (event, decision) => {
     }
 });
 
-ipcMain.on('toggle-overlay', () => {
+function toggleOverlay() {
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
     if (overlayWindow.isVisible()) {
         overlayWindow.hide();
     } else {
@@ -492,7 +493,10 @@ ipcMain.on('toggle-overlay', () => {
         overlayWindow.showInactive();
         overlayWindow.moveTop();
     }
-});
+}
+
+// The overlay's own close button still calls this, and so does the tray entry.
+ipcMain.on('toggle-overlay', toggleOverlay);
 
 // --- Overlay Interaction Toggler ---
 ipcMain.on('set-overlay-interactive', (event, interactive) => {
@@ -613,7 +617,11 @@ app.whenReady().then(() => {
   
   const contextMenu = Menu.buildFromTemplate([
       { label: 'Open Macropad Studio', click: () => { mainWindow.show(); } },
-      { label: 'Quit', click: () => { 
+      // The overlay is a background HUD, so the tray is its home now that the
+      // main window no longer carries a button for it.
+      { label: 'Show / Hide Overlay', click: () => { toggleOverlay(); } },
+      { type: 'separator' },
+      { label: 'Quit', click: () => {
           appIsQuitting = true; 
           app.quit(); 
       }}

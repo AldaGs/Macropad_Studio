@@ -29,6 +29,7 @@
     ],
     "files": [
       "src/**/*",
+      "!src/*.test.js",
       "package.json"
     ],
     "extraResources": [

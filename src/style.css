@@ -27,7 +27,7 @@ body {
 .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 
 /* --- FROSTED GLASS CONTAINERS --- */
-.card, .status-bar, .settings-accordion, .modal-box { 
+.card, .status-bar, .modal-box { 
     background: var(--bg-glass); 
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -86,12 +86,12 @@ button:hover {
 button:active { transform: translateY(1px); }
 
 /* --- Primary Actions (Cyan Stroke) --- */
-#add-btn, #save-apply-btn, #toggle-btn, #connectBtn, #new-profile-btn, #import-btn, #export-btn, .edit-btn, #btn-minimize { 
+#add-btn, #save-apply-btn, #settings-btn, #connectBtn, #new-profile-btn, #import-btn, #export-btn, .edit-btn, #btn-minimize { 
     border-color: rgba(0, 212, 255, 0.5) !important; 
     color: var(--accent-cyan) !important; 
 }
 
-#add-btn:hover, #save-apply-btn:hover, #toggle-btn:hover, #connectBtn:hover, #new-profile-btn:hover, #import-btn:hover, #export-btn:hover, .edit-btn:hover, #btn-minimize:hover { 
+#add-btn:hover, #save-apply-btn:hover, #settings-btn:hover, #connectBtn:hover, #new-profile-btn:hover, #import-btn:hover, #export-btn:hover, .edit-btn:hover, #btn-minimize:hover { 
     background: rgba(0, 212, 255, 0.05) !important; 
     border-color: var(--accent-cyan) !important;
     box-shadow: 0 0 6px rgba(0, 212, 255, 0.05) !important; 
@@ -116,6 +116,24 @@ button:active { transform: translateY(1px); }
     box-shadow: 0 0 6px rgba(255, 71, 87, 0.10) !important; 
 }
 #save-apply-btn:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); }
+
+/* --- GRID VIEW (the keyboard picture, shared styles live in keyboard.css) --- */
+.view-switch { display: flex; gap: 5px; margin-bottom: 15px; }
+.view-switch button { padding: 6px 14px; font-size: 0.85em; color: var(--text-muted); }
+.view-switch button.selected { border-color: rgba(0, 212, 255, 0.5) !important; color: var(--accent-cyan) !important; }
+
+/* A full keyboard is wider than this column; a numpad is not. Scroll rather than
+   shrink the keys, so the picture keeps matching the hardware. */
+.keyboard-scroll { overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; }
+.keyboard-scroll::-webkit-scrollbar { height: 6px; }
+.keyboard-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+/* In the editor the keys are controls, not a read-only legend like the overlay's */
+#grid-keyboard .key { cursor: pointer; }
+#grid-keyboard .key:hover { border-color: rgba(255,255,255,0.35); transform: translateY(-2px); }
+#grid-keyboard .key.editing { border-color: var(--accent-magenta); color: var(--accent-magenta); box-shadow: 0 0 10px rgba(224, 36, 197, 0.25); }
+
+.grid-hint { color: var(--text-muted); font-size: 0.8em; margin: 0 0 20px 0; }
 
 /* --- MACRO LIST --- */
 .macro-list { list-style: none; padding: 0; margin: 0 0 20px 0; max-height: 400px; overflow-y: auto; padding-right: 5px;}
@@ -143,29 +161,11 @@ button:active { transform: translateY(1px); }
 .delete-btn { background: rgba(255, 71, 87, 0.1); color: var(--accent-warning); border: 1px solid rgba(255, 71, 87, 0.3); padding: 6px 12px; font-size: 0.85em; }
 .delete-btn:hover { background: var(--accent-warning); color: #fff; box-shadow: 0 0 10px rgba(255, 71, 87, 0.4); border-color: var(--accent-warning);}
 
-/* --- SETTINGS ACCORDION --- */
-.settings-accordion { margin-bottom: 20px; }
-.settings-toggle { 
-    width: 100%; 
-    background: transparent; 
-    border: none; 
-    padding: 15px 20px; 
-    color: var(--text-muted); 
-    text-align: left; 
-    font-size: 0.85em; 
-    text-transform: uppercase; 
-    letter-spacing: 1px; 
-    cursor: pointer; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    border-radius: 12px;
-}
-.settings-toggle:hover { background: rgba(255, 255, 255, 0.03); color: var(--text-main); }
-.settings-chevron { transition: transform 0.3s ease; }
-.settings-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease-out; }
-.settings-content.open { grid-template-rows: 1fr; }
-.settings-inner { overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 0 20px; }
+/* --- SETTINGS SCREEN --- */
+/* Settings is a page, not a drawer: capped width so the rows stay readable
+   rather than stretching the full 1600px the editor needs. */
+.settings-card { max-width: 720px; margin: 0 auto; }
+.settings-inner { display: flex; flex-direction: column; gap: 12px; }
 .setting-row { color: var(--text-main); font-size: 0.9em; display: flex; align-items: center; gap: 10px; cursor: pointer; justify-content: flex-start; text-transform: none; letter-spacing: normal;}
 .setting-row input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent-cyan); cursor: pointer;}
 
