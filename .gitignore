@@ -6,3 +6,4 @@ release/
 .env
 !bin/**/*.exe
 !bin/**/*.dll
+.claude/
