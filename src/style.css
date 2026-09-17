@@ -24,7 +24,19 @@ body {
     min-height: 100vh;
 }
 
-.main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+/* The editor is a fixed-size form and stops getting better past ~400px; the board
+   is the part that wants room, so it takes whatever is left rather than half. */
+.main-layout { display: grid; grid-template-columns: minmax(340px, 400px) 1fr; gap: 20px; align-items: start; }
+/* A grid item's min-width is auto, so wide content (the keyboard) would push its
+   column past 1fr and stretch the whole layout. Pin it so the column is the
+   fixed budget that fitKeyboard() sizes the board against. */
+.main-layout > * { min-width: 0; }
+
+/* Narrow windows: half a column cannot hold a full keyboard without shrinking the
+   keys past reading size, so give the board the whole width instead. */
+@media (max-width: 1250px) {
+    .main-layout { grid-template-columns: 1fr; }
+}
 
 /* --- FROSTED GLASS CONTAINERS --- */
 .card, .status-bar, .modal-box { 
@@ -41,7 +53,9 @@ body {
 
 /* Headers and Typography */
 h3 { margin-top: 0; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; color: #fff; font-weight: 600;}
-label { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--text-muted); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;}
+label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;}
+/* The narrower editor column wraps the step text; keep the toggle beside it on one line */
+label > span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 /* --- GLASS INPUTS --- */
 .input-group { margin-bottom: 18px; }
@@ -122,11 +136,14 @@ button:active { transform: translateY(1px); }
 .view-switch button { padding: 6px 14px; font-size: 0.85em; color: var(--text-muted); }
 .view-switch button.selected { border-color: rgba(0, 212, 255, 0.5) !important; color: var(--accent-cyan) !important; }
 
-/* A full keyboard is wider than this column; a numpad is not. Scroll rather than
-   shrink the keys, so the picture keeps matching the hardware. */
-.keyboard-scroll { overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; }
-.keyboard-scroll::-webkit-scrollbar { height: 6px; }
-.keyboard-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+/* A full keyboard is wider than this column, so fitKeyboard() zooms it down to
+   fit. zoom rather than transform: it reflows, so the box keeps the height the
+   scaled keys actually occupy instead of leaving a gap under them. */
+.keyboard-scroll { margin-bottom: 10px; }
+/* max-content so the board lays out at its true width: constrained to the column
+   it reports a width its own keys then overflow, and fitKeyboard() would measure
+   the constraint instead of what it needs to fit. */
+#grid-keyboard { width: max-content; }
 
 /* In the editor the keys are controls, not a read-only legend like the overlay's */
 #grid-keyboard .key { cursor: pointer; }

@@ -134,6 +134,7 @@ function toggleSettings() {
     settings.style.display = showing ? '' : 'none';
     document.getElementById('editor-screen').style.display = showing ? 'none' : '';
     document.getElementById('settings-btn-label').innerText = showing ? 'Back to Editor' : 'Settings';
+    if (!showing) fitKeyboard();   // the editor was hidden, so it could not be measured
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -519,7 +520,48 @@ function renderGrid() {
     if (editingKeyId !== null) {
         board.querySelectorAll(`.key[data-id="${editingKeyId}"]`).forEach(k => k.classList.add('editing'));
     }
+
+    fitKeyboard();   // layouts differ in width, so refit whenever the board changes
 }
+
+// Shrink the board until it fits its column. A full keyboard is about 900px wide
+// and the column is narrower than that, and the numpad layout already fits, so
+// this is a no-op for most macropads.
+function fitKeyboard() {
+    const board = document.getElementById('grid-keyboard');
+    if (!board) return;
+
+    // Measure the keys themselves, not the container: a hidden block contributes no
+    // width, and a key that overflows its cluster contributes width the container
+    // never reports. The visible keys are what actually has to fit.
+    const extent = () => {
+        const rects = [...board.querySelectorAll('.key')]
+            .filter(k => k.offsetParent)
+            .map(k => k.getBoundingClientRect());
+        if (!rects.length) return 0;
+        return Math.max(...rects.map(r => r.right)) - Math.min(...rects.map(r => r.left));
+    };
+
+    board.style.zoom = '';                      // measure at natural size
+    // A pixel of slack: zoom lands on fractional widths, and rounding up would put
+    // the rightmost key a hair past the edge.
+    const available = board.parentElement.clientWidth - 1;
+    const natural = extent();
+    if (!available || !natural || natural <= available) return;
+
+    // A floor keeps the labels legible; below it the board is left to overflow.
+    const floor = 0.5;
+    board.style.zoom = Math.max(available / natural, floor);
+
+    // zoom re-resolves the max-content width, so the first ratio lands a little
+    // wide. One correction against the measured result settles it exactly.
+    const after = extent();
+    if (after > available) {
+        board.style.zoom = Math.max(board.style.zoom * available / after, floor);
+    }
+}
+
+window.addEventListener('resize', fitKeyboard);
 
 function setMacroView(view) {
     const grid = view === 'grid';
@@ -527,6 +569,7 @@ function setMacroView(view) {
     document.getElementById('list-view').style.display = grid ? 'none' : '';
     document.getElementById('view-grid-btn').classList.toggle('selected', grid);
     document.getElementById('view-list-btn').classList.toggle('selected', !grid);
+    if (grid) fitKeyboard();   // it could not be measured while it was hidden
 }
 
 document.getElementById('grid-device-tabs').addEventListener('click', (e) => {

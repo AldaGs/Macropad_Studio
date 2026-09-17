@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog, Notification } = require('electron'); 
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog, Notification, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
@@ -260,9 +260,13 @@ function createWindow () {
     }
   } catch(e) { console.error("Error sending Notification", e); }
 
+  // Open at the full screen size: the keyboard grid wants every pixel it can get.
+  // workAreaSize, not the raw screen, so the taskbar still has its strip.
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
+
   mainWindow = new BrowserWindow({
-    width: 1250,
-    height: 980,
+    width: screenW,
+    height: screenH,
     title: "Macropad Studio",
     icon: path.join(__dirname, 'assets/icon.ico'),
     show: !startHidden, // THE FIX: Only show the window if startHidden is false
@@ -272,6 +276,11 @@ function createWindow () {
       preload: path.join(__dirname, 'preload.js') 
     }
   });
+
+  // The bounds above already fill the work area; maximize makes it a real snapped
+  // window (restore button, edge snapping). Skipped when starting to tray, because
+  // maximize() would show the window the user asked to keep hidden.
+  if (!startHidden) mainWindow.maximize();
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 

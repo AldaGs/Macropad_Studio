@@ -91,6 +91,10 @@
 .nav-cluster { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;}
 .arrow-cluster { display: grid; grid-template-columns: 40px 40px 40px; gap: 5px; margin-top: 5px;}
 .numpad-cluster { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;}
+/* The numpad's 0 spans two 40px tracks plus the 5px gap = 85px, but .w-2 asks for
+   90, which widened the track and pushed the right-hand column past the cluster.
+   In a grid the span already sets the width, so let the key fill it. */
+.numpad-cluster .key { min-width: 0; }
 
 /* A layout is just which blocks of the full keyboard this device actually has.
    These live in CSS rather than inline on the element: an inline display beats a
