@@ -670,6 +670,7 @@ function resetForm(delayButtonReset = false) {
         addBtn.style.background = "#007acc";
         addBtn.style.color = "white";
         document.getElementById('cancel-btn').style.display = 'none';
+        document.getElementById('clear-btn').style.display = 'none';
     };
 
     if (delayButtonReset) {
@@ -841,7 +842,20 @@ function loadMacroIntoEditor(macro) {
     addBtn.style.color = "#1e1e1e";
     
     document.getElementById('cancel-btn').style.display = 'block'; 
+    document.getElementById('clear-btn').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' }); 
+}
+
+// Remove the macro open in the editor - the way to clear a key from the grid.
+function clearEditingKey() {
+    if (!editingMacro) return;
+    const target = editingMacro;
+    showCustomAlert("Clear Key?", `Remove the macro on [${target.visualKey}]?`, "Yes, Clear", "#cc3300", () => {
+        appData.profiles[appData.activeProfile] = appData.profiles[appData.activeProfile].filter(m => m !== target);
+        resetForm();
+        renderList();
+        showToast("Key cleared.");
+    });
 }
 
 function deleteMacro(button) {
