@@ -211,7 +211,11 @@ function showDriverSetup(detail) {
 
 function showToast(text, color) {
     if (!toastWindow || toastWindow.isDestroyed()) return;
+    // Other top-most overlays (camera, AE previews) push us back; re-assert the highest
+    // level on every toast, same as the macro overlay does.
+    toastWindow.setAlwaysOnTop(true, 'screen-saver');
     toastWindow.showInactive();
+    toastWindow.moveTop();
     toastWindow.webContents.send('toast', { text, color });
 }
 
