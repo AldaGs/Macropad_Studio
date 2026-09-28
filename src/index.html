@@ -110,7 +110,11 @@
                         <button id="delete-profile-btn" onclick="deleteCurrentProfile()" style="margin: 0; padding: 5px 10px; width: auto; background: #cc3300;" title="Delete Profile"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                     </div>
                 </div>
-                
+
+                <div class="input-group">
+                    <label>Auto-switch to this profile in (exe names, comma separated)</label>
+                    <input type="text" id="profile-apps" placeholder="e.g. photoshop.exe, premiere.exe - blank = only when selected" onchange="saveProfileApps()">
+                </div>
 
                 <div style="display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 15px;">
                     <button id="import-btn" style="margin: 0; background: #444; color: #ddd; font-size: 0.85em;" onclick="importProfile()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> Import .mps</button>

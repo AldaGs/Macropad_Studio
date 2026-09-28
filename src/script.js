@@ -387,10 +387,29 @@ function createNewProfile() {
     });
 }
 
+// Apps that pull this profile in while they're focused. Anything else uses the
+// profile selected here, which acts as the default.
+function saveProfileApps() {
+    const apps = document.getElementById('profile-apps').value
+        .split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        .map(s => s.endsWith('.exe') ? s : s + '.exe');
+    appData.settings.profileApps = appData.settings.profileApps || {};
+    if (apps.length) appData.settings.profileApps[appData.activeProfile] = apps;
+    else delete appData.settings.profileApps[appData.activeProfile];
+    showProfileApps();
+    window.electronAPI.saveMacros(appData);
+}
+
+function showProfileApps() {
+    const apps = ((appData.settings && appData.settings.profileApps) || {})[appData.activeProfile] || [];
+    document.getElementById('profile-apps').value = apps.join(', ');
+}
+
 function switchProfile() {
     resetForm(); 
     appData.activeProfile = document.getElementById('profile-select').value;
     renderList();
+    showProfileApps();
 
     // --- NEW: Check the box ONLY if this profile is the designated Startup Profile ---
     document.getElementById('auto-apply-toggle').checked = (appData.settings.autoApply === appData.activeProfile);
@@ -933,6 +952,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 2. Sync the UI checkboxes
     document.getElementById('auto-apply-toggle').checked = (appData.settings.autoApply === appData.activeProfile);
     document.getElementById('osd-toggle').checked = appData.settings.showOSD || false;
+    showProfileApps();
     document.getElementById('toast-color').value = appData.settings.toastColor || '#28a745';
     document.getElementById('minimize-tray-toggle').checked = appData.settings.minimizeToTray || false;
     document.getElementById('start-minimized-toggle').checked = appData.settings.startMinimized || false;

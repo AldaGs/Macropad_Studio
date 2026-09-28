@@ -22,7 +22,42 @@ const VK_MOD = { ctrl: 0x11, shift: 0x10, alt: 0x12, win: 0x5b };
 
 const user32 = koffi.load('user32.dll');
 const SendInput = user32.func('__stdcall', 'SendInput', 'uint32', ['uint32', 'void *', 'int']);
-const Beep = koffi.load('kernel32.dll').func('__stdcall', 'Beep', 'bool', ['uint32', 'uint32']);
+const kernel32 = koffi.load('kernel32.dll');
+const Beep = kernel32.func('__stdcall', 'Beep', 'bool', ['uint32', 'uint32']);
+
+// --- Foreground app (for per-app profiles) ------------------------------------
+const GetForegroundWindow = user32.func('__stdcall', 'GetForegroundWindow', 'void *', []);
+const GetWindowThreadProcessId = user32.func('__stdcall', 'GetWindowThreadProcessId', 'uint32', ['void *', '_Out_ uint32 *']);
+const OpenProcess = kernel32.func('__stdcall', 'OpenProcess', 'void *', ['uint32', 'bool', 'uint32']);
+const QueryFullProcessImageNameW = kernel32.func('__stdcall', 'QueryFullProcessImageNameW', 'bool', ['void *', 'uint32', 'void *', '_Inout_ uint32 *']);
+const CloseHandle = kernel32.func('__stdcall', 'CloseHandle', 'bool', ['void *']);
+const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+// Lowercase exe name of the focused window ("photoshop.exe"), or '' if unknown.
+// Asked once per keypress, so there is no polling loop to keep alive.
+function foregroundExe() {
+  try {
+    const pid = [0];
+    GetWindowThreadProcessId(GetForegroundWindow(), pid);
+    const h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid[0]);
+    if (!h) return '';
+    const buf = Buffer.alloc(1040);
+    const len = [520];
+    const ok = QueryFullProcessImageNameW(h, 0, buf, len);
+    CloseHandle(h);
+    if (!ok) return '';
+    return buf.toString('ucs2', 0, len[0] * 2).split('\\').pop().toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+// The profile whose app list has `exe`, else the selected profile as the default.
+function pickProfile(state, exe) {
+  const apps = (state.settings && state.settings.profileApps) || {};
+  const hit = exe && Object.keys(apps).find((p) => state.profiles[p] && apps[p].includes(exe));
+  return hit || state.activeProfile;
+}
 
 function writeInput(buf, i, { vk = 0, scan = 0, flags = 0 }) {
   const o = i * INPUT_BYTES;
@@ -191,7 +226,7 @@ class Engine extends EventEmitter {
 
   dispatch(vk, hwid) {
     const state = this.getState();
-    const macros = (state.profiles && state.profiles[state.activeProfile]) || [];
+    const macros = (state.profiles && state.profiles[pickProfile(state, foregroundExe())]) || [];
 
     // A macro bound to this specific macropad wins over one left on "any device",
     // so a shared key can still be overridden per board.
@@ -313,6 +348,14 @@ function selfTest() {
   console.assert(expandPlaceholders('at {time}', d).startsWith('at 02:30:05'), 'time placeholder');
   console.assert(expandPlaceholders('{date}', d) === 'Tuesday, September 15, 2026', 'date placeholder');
   console.assert(expandPlaceholders('none', d) === 'none', 'text without placeholders is untouched');
+
+  const st = { activeProfile: 'Default', profiles: { Default: [], Photo: [] },
+    settings: { profileApps: { Photo: ['photoshop.exe'], Gone: ['code.exe'] } } };
+  console.assert(pickProfile(st, 'photoshop.exe') === 'Photo', 'app with a profile switches to it');
+  console.assert(pickProfile(st, 'notepad.exe') === 'Default', 'other apps use the default');
+  console.assert(pickProfile(st, 'code.exe') === 'Default', 'deleted profile is ignored');
+  console.assert(pickProfile(st, '') === 'Default', 'unknown foreground uses the default');
+  console.assert(typeof foregroundExe() === 'string', 'foreground lookup never throws');
 
   // Device-aware macro resolution: specific binding beats "any device".
   const resolve = (macros, vk, hwid) => {
