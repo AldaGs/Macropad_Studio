@@ -10,6 +10,18 @@ const keyDictionary = {
 
 let appData = { activeProfile: "Default", profiles: { "Default": [] }, settings: { autoApply: false } };
 let editingKeyId = null;
+let editingMacro = null;
+
+// The "Fires on" dropdown is the one source of truth for a macro's device. A hwid
+// that is no longer paired still gets an option so editing doesn't silently unbind it.
+function setBoundDevice(hwid) {
+    const sel = document.getElementById('device-select');
+    if (hwid && ![...sel.options].some(o => o.value === hwid)) {
+        sel.add(new Option('Unpaired device', hwid));
+    }
+    sel.value = hwid || '';
+}
+const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');   // the exact object being edited, so saving replaces it and not a sibling
 let pairedMacropads = [];   // kept in sync by renderDevices, used to label macro bindings
 
 let alertConfirmCallback = null;
@@ -148,6 +160,11 @@ const LAYOUTS = { full: 'Full keyboard', numpad: 'Numpad', tkl: 'Tenkeyless' };
 
 function renderDevices(devices) {
     pairedMacropads = devices;
+    const sel = document.getElementById('device-select');
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">Any macropad</option>' + devices.map(d =>
+        `<option value="${escapeAttr(d.hwid)}">${escapeAttr(d.name)}</option>`).join('');
+    setBoundDevice(keep);
     renderList();   // device badges on the macro list depend on this
 
     const host = document.getElementById('device-list');
@@ -331,7 +348,7 @@ document.getElementById('keyId').addEventListener('blur', function () {
 window.electronAPI.onKeyCaptured((event, { keyId, hwid, deviceName }) => {
     const input = document.getElementById('keyId');
     input.dataset.keyid = keyId;
-    input.dataset.device = hwid;
+    setBoundDevice(hwid);
     input.value = vkToName[keyId] || ("ID:" + keyId);
     showToast(`Bound to ${input.value} on ${deviceName}`);
 });
@@ -585,7 +602,16 @@ document.getElementById('grid-keyboard').addEventListener('click', (e) => {
     const keyId = key.dataset.id;
 
     const macro = gridShown.get(keyId);
-    if (macro) { loadMacroIntoEditor(macro); return; }
+    if (macro) {
+        loadMacroIntoEditor(macro);
+        // An "any device" macro opened from a pad's tab gets pinned to that pad on save,
+        // so it stops firing on every other macropad with the same key.
+        const device = pairedMacropads[gridDevice];
+        if (!macro.device && device && pairedMacropads.length > 1) {
+            setBoundDevice(device.hwid);
+        }
+        return;
+    }
 
     // Free key: set the editor up for a new macro on it, so the user never has to
     // press the physical key just to say which one they meant.
@@ -594,7 +620,7 @@ document.getElementById('grid-keyboard').addEventListener('click', (e) => {
     keyField.value = vkToName[keyId] || ("ID:" + keyId);
     keyField.dataset.keyid = keyId;
     const device = pairedMacropads[gridDevice];
-    if (device) keyField.dataset.device = device.hwid; else delete keyField.dataset.device;
+    setBoundDevice(device ? device.hwid : '');
     document.getElementById('shortcut-input').focus();
     renderGrid();
 });
@@ -608,7 +634,7 @@ function resetForm(delayButtonReset = false) {
     const keyField = document.getElementById('keyId');
     keyField.value = '';
     delete keyField.dataset.keyid;
-    delete keyField.dataset.device;
+    setBoundDevice('');
     document.getElementById('shortcut-input').value = '';
     document.getElementById('path-input').value = '';
     document.getElementById('custom-input').value = '';
@@ -616,6 +642,7 @@ function resetForm(delayButtonReset = false) {
     document.getElementById('action-type').value = 'send';
     toggleActionInput();
     editingKeyId = null;
+    editingMacro = null;
     renderGrid();   // drop the "editing" highlight
 
     const restoreButton = () => {
@@ -636,7 +663,12 @@ function resetForm(delayButtonReset = false) {
 function saveMacroToMemory(newMacro, existingIndex, friendlyKeyName) {
     if (editingKeyId) {
         if (editingKeyId == newMacro.keyId) {
-            appData.profiles[appData.activeProfile][existingIndex] = newMacro;
+            // Replace the macro being edited; if its device changed onto one that already
+            // had this key, the confirmed overwrite drops that one.
+            const list = appData.profiles[appData.activeProfile];
+            const at = list.indexOf(editingMacro);
+            list[at] = newMacro;
+            if (existingIndex !== -1 && existingIndex !== at) list.splice(existingIndex, 1);
             showToast("Macro updated!");
         } else {
             if (existingIndex !== -1) appData.profiles[appData.activeProfile].splice(existingIndex, 1);
@@ -689,7 +721,7 @@ function addMacroToList() {
         friendlyKeyName = rawKeyInput.toUpperCase();
         finalKeyId = keyDictionary[friendlyKeyName] || friendlyKeyName;
     }
-    const boundDevice = isKeyManual ? '' : (keyInput.dataset.device || '');
+    const boundDevice = document.getElementById('device-select').value;
 
     const actionType = document.getElementById('action-type').value;
     let actionValue = "";
@@ -732,7 +764,7 @@ function addMacroToList() {
     const existingIndex = appData.profiles[appData.activeProfile]
         .findIndex(m => m.keyId == finalKeyId && (m.device || '') === boundDevice);
 
-    if (existingIndex !== -1 && editingKeyId != finalKeyId) {
+    if (existingIndex !== -1 && appData.profiles[appData.activeProfile][existingIndex] !== editingMacro) {
         showCustomAlert("Overwrite Key?", `Key [${friendlyKeyName}] is already assigned. Do you want to overwrite it?`, "Overwrite", "#d4a373", () => saveMacroToMemory(newMacro, existingIndex, friendlyKeyName));
     } else {
         saveMacroToMemory(newMacro, existingIndex, friendlyKeyName);
@@ -761,7 +793,7 @@ function loadMacroIntoEditor(macro) {
     const keyField = document.getElementById('keyId');
     keyField.value = String(macro.visualKey).replace("ID:", "");
     keyField.dataset.keyid = macro.keyId;
-    if (macro.device) keyField.dataset.device = macro.device; else delete keyField.dataset.device;
+    setBoundDevice(macro.device || '');
 
     // A legacy AHK macro (from an .mps exported before the engine swap) opens in the
     // JavaScript editor with its old code visible, so it can be rewritten in place.
@@ -782,6 +814,7 @@ function loadMacroIntoEditor(macro) {
     document.getElementById('desc-input').value = macro.desc || "";
 
     editingKeyId = macro.keyId;
+    editingMacro = macro;
     renderGrid();   // move the "editing" highlight onto this key
     const addBtn = document.getElementById('add-btn');
     addBtn.innerHTML = `<span id="add-icon" style="display: inline-block;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Update Macro`;
